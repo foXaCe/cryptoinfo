@@ -40,6 +40,8 @@ from .const.const import (
     ATTR_ATH,
     ATTR_ATH_DATE,
     ATTR_ATH_CHANGE,
+    ATTR_RANK,
+    ATTR_IMAGE,
     CONF_CRYPTOCURRENCY_IDS,
     CONF_CURRENCY_NAME,
     CONF_ID,
@@ -326,6 +328,8 @@ class CryptoinfoSensor(CoordinatorEntity):
                 ATTR_ATH: None,
                 ATTR_ATH_DATE: None,
                 ATTR_ATH_CHANGE: None,
+                ATTR_RANK: None,
+                ATTR_IMAGE: None,
             }
 
         data = self.coordinator.data[self.cryptocurrency_id]
@@ -350,6 +354,8 @@ class CryptoinfoSensor(CoordinatorEntity):
             ATTR_ATH: data.get("ath"),
             ATTR_ATH_DATE: data.get("ath_date"),
             ATTR_ATH_CHANGE: data.get("ath_change_percentage"),
+            ATTR_RANK: data.get("market_cap_rank"),
+            ATTR_IMAGE: data["image"],
         }
 
     async def async_will_remove_from_hass(self) -> None:

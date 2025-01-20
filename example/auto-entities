@@ -1,0 +1,138 @@
+type: custom:auto-entities
+card:
+  type: entities
+filter:
+  include:
+    - entity_id: sensor.cryptoinfo_*
+      options:
+        type: custom:template-entity-row
+        state: ${{ states(config.entity) | round(1) }}
+        image: "{{ state_attr(config.entity, 'image')}}"
+        name: "{{ state_attr(config.entity, 'cryptocurrency_name')}}"
+        secondary: "{{ state_attr(config.entity, 'cryptocurrency_symbol')}}"
+    - entity_id: sensor.cryptoinfo_*
+      options:
+        type: custom:template-entity-row
+        state: ${{ state_attr(config.entity, 'ath') | round (4)}}
+        icon: mdi:currency-usd
+        name: High
+        secondary: >-
+          {{ as_timestamp(state_attr(config.entity, 'ath_date')) |
+          timestamp_custom('%d-%m-%Y %H:%M ') }}
+    - entity_id: sensor.cryptoinfo_*
+      options:
+        type: custom:template-entity-row
+        state: "{{ state_attr(config.entity, 'rank') }}"
+        icon: mdi:chart-line
+        name: Rank
+        secondary: ${{"{:,}".format(state_attr(config.entity, 'market_cap')|int)}}
+    - entity_id: sensor.cryptoinfo_*
+      options:
+        type: custom:apexcharts-card
+        graph_span: 24h
+        experimental:
+          color_threshold: true
+          disable_config_validation: true
+        header:
+          show: true
+          show_states: true
+          colorize_states: true
+        series:
+          - entity: this.entity_id
+            name: USD Price
+            attribute: baseprice
+            float_precision: 4
+            yaxis_id: left
+            stroke_width: 2
+            show:
+              extremas: true
+          - entity: this.entity_id
+            name: Rank
+            attribute: rank
+            unit: "#"
+            curve: stepline
+            yaxis_id: right
+            stroke_width: 2
+          - entity: this.entity_id
+            name: 1h Change
+            float_precision: 2
+            attribute: 1h_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+          - entity: this.entity_id
+            name: 24h Change
+            attribute: 24h_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+          - entity: this.entity_id
+            name: 7d Change
+            attribute: 7d_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+          - entity: this.entity_id
+            name: 14d Change
+            attribute: 14d_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+          - entity: this.entity_id
+            name: 30d Change
+            attribute: 30d_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+          - entity: this.entity_id
+            name: 1y Change
+            attribute: 1y_change
+            unit: "%"
+            show:
+              in_chart: false
+              header_color_threshold: true
+            color_threshold:
+              - value: 0
+                color: rgb(255,0,0)
+              - value: 0
+                color: rgb(0,124,0)
+        yaxis:
+          - id: left
+            decimals: 3
+          - id: right
+            decimals: 0
+            opposite: true
+sort:
+  method: state
+  numeric: true
+  reverse: true
