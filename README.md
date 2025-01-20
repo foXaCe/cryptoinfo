@@ -74,6 +74,8 @@ The entities have some important attributes:
 - ath_price             This will return the All Time High Price of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - ath_date              This will return the date when the All Time High was reached of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - ath_change            This will return the percentage change from the All Time High of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
+- rank                  This will return the cryptocurrency rank
+- image                 This will return the cryptocurrency image
 ```
 
 Template example for usage of attributes.
