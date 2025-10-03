@@ -52,7 +52,8 @@
         },
         "error": {
             "cannot_connect": "Error: Cannot connect",
-            "mismatch_values": "The number of cryptocurrency id's ({crypto_count}) does not match the number of multipliers ({multiplier_count})"
+            "mismatch_values": "The number of cryptocurrency id's ({crypto_count}) does not match the number of multipliers ({multiplier_count})",
+            "invalid_cryptocurrency_ids": "The following cryptocurrency IDs are not valid in CoinGecko: {invalid_ids}. Please check the list at https://api.coingecko.com/api/v3/coins/list"
         }
     }
 }

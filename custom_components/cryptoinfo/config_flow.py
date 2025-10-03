@@ -12,6 +12,7 @@ from homeassistant import config_entries
 from homeassistant.helpers import config_validation as cv
 
 from .helper.crypto_info_data import CryptoInfoData
+from .helper.coingecko_api import CoinGeckoAPI
 
 from .const.const import (
     _LOGGER,
@@ -29,13 +30,13 @@ from .const.const import (
 class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    def _validate_input(self, user_input: dict[str, Any]) -> dict[str, Any]:
+    async def _validate_input(self, user_input: dict[str, Any]) -> dict[str, Any]:
         """Validate the input."""
         errors = {}
 
         # Split and clean the values
         crypto_ids = [
-            name.strip() for name in user_input[CONF_CRYPTOCURRENCY_IDS].split(",")
+            name.strip().lower() for name in user_input[CONF_CRYPTOCURRENCY_IDS].split(",")
         ]
         multipliers = [mult.strip() for mult in user_input[CONF_MULTIPLIERS].split(",")]
 
@@ -46,6 +47,23 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "count_context": {
                     "crypto_count": len(crypto_ids),
                     "multiplier_count": len(multipliers),
+                },
+            }
+
+        # Validate cryptocurrency IDs against CoinGecko API
+        api = CoinGeckoAPI(self.hass)
+        validation_results = await api.validate_cryptocurrency_ids(crypto_ids)
+
+        invalid_ids = [
+            crypto_id for crypto_id, is_valid in validation_results.items()
+            if not is_valid
+        ]
+
+        if invalid_ids:
+            return {
+                "base": "invalid_cryptocurrency_ids",
+                "invalid_context": {
+                    "invalid_ids": ", ".join(invalid_ids),
                 },
             }
 
@@ -65,11 +83,12 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_UNIT_OF_MEASUREMENT] = ""
 
             # Validate the input
-            validation_result = self._validate_input(user_input)
+            validation_result = await self._validate_input(user_input)
             if validation_result:
                 count_context = validation_result.pop("count_context", {})
+                invalid_context = validation_result.pop("invalid_context", {})
                 return await self._redo_configuration(
-                    entry.data, validation_result, count_context
+                    entry.data, validation_result, {**count_context, **invalid_context}
                 )
 
             # Update the shared data
@@ -214,14 +233,15 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             # Validate the input
-            validation_result = self._validate_input(user_input)
+            validation_result = await self._validate_input(user_input)
             if validation_result:
                 count_context = validation_result.pop("count_context", {})
+                invalid_context = validation_result.pop("invalid_context", {})
                 return self.async_show_form(
                     step_id="user",
                     data_schema=cryptoinfo_schema,
                     errors=validation_result,
-                    description_placeholders={**count_context},
+                    description_placeholders={**count_context, **invalid_context},
                 )
 
             await self.async_set_unique_id(user_input[CONF_ID])
