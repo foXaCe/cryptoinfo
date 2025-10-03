@@ -3,6 +3,7 @@
 !hacs.json
 !LICENSE
 !README.md
+!README_fr.md
 !custom_components/
 !custom_components/cryptoinfo/
 !custom_components/cryptoinfo/**

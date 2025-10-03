@@ -1,0 +1,58 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Ajouter un nouveau capteur",
+                "description": "Pour plus d'informations, consultez la [documentation](https://github.com/heyajohnny/cryptoinfo).",
+                "data": {
+                    "id": "Identifiant",
+                    "cryptocurrency_ids": "ID de cryptomonnaies",
+                    "currency_name": "Nom de la devise",
+                    "unit_of_measurement": "Unité de mesure",
+                    "multipliers": "Multiplicateurs",
+                    "update_frequency": "Fréquence de mise à jour (minutes)",
+                    "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
+                },
+                "data_description": {
+                    "id": "Nom unique pour le capteur.",
+                    "currency_name": "L'un des noms de devises dans [cette liste](https://api.coingecko.com/api/v3/simple/supported_vs_currencies).",
+                    "cryptocurrency_ids": "Les valeurs 'id' d'une ou plusieurs pièces/jetons de [cette liste](https://api.coingecko.com/api/v3/coins/list), séparées par des virgules.",
+                    "unit_of_measurement": "Voulez-vous utiliser un symbole de devise ? ([Liste de symboles](https://en.wikipedia.org/wiki/Currency_symbol#List_of_currency_symbols_currently_in_use))",
+                    "multipliers": "Le nombre de pièces/jetons (séparés par une virgule). Le nombre de multiplicateurs doit correspondre au nombre d'ID de cryptomonnaies.",
+                    "update_frequency": "À quelle fréquence la valeur doit-elle être actualisée ? Attention à la [limite de taux CoinGecko](https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan) lors du suivi de plusieurs cryptomonnaies.",
+                    "min_time_between_requests": "Le temps minimum entre les autres entités et cette entité pour effectuer une requête de données à l'API. (Cette propriété est partagée et identique pour chaque entité.)"
+                }
+            },
+            "reconfigure": {
+                "title": "Mettre à jour le capteur existant",
+                "description": "Pour plus d'informations, consultez la [documentation](https://github.com/heyajohnny/cryptoinfo).",
+                "data": {
+                    "id": "Identifiant",
+                    "cryptocurrency_ids": "ID de cryptomonnaies",
+                    "currency_name": "Nom de la devise",
+                    "unit_of_measurement": "Unité de mesure",
+                    "multipliers": "Multiplicateurs",
+                    "update_frequency": "Fréquence de mise à jour (minutes)",
+                    "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
+                },
+                "data_description": {
+                    "id": "Nom unique pour le capteur.",
+                    "currency_name": "L'un des noms de devises dans [cette liste](https://api.coingecko.com/api/v3/simple/supported_vs_currencies).",
+                    "cryptocurrency_ids": "Les valeurs 'id' d'une ou plusieurs pièces/jetons de [cette liste](https://api.coingecko.com/api/v3/coins/list), séparées par des virgules.",
+                    "unit_of_measurement": "Voulez-vous utiliser un symbole de devise ? ([Liste de symboles](https://en.wikipedia.org/wiki/Currency_symbol#List_of_currency_symbols_currently_in_use))",
+                    "multipliers": "Le nombre de pièces/jetons (séparés par une virgule). Le nombre de multiplicateurs doit correspondre au nombre d'ID de cryptomonnaies.",
+                    "update_frequency": "À quelle fréquence la valeur doit-elle être actualisée ? Attention à la [limite de taux CoinGecko](https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan) lors du suivi de plusieurs cryptomonnaies.",
+                    "min_time_between_requests": "Le temps minimum entre les autres entités et cette entité pour effectuer une requête de données à l'API. (Cette propriété est partagée et identique pour chaque entité.)"
+                }
+            }
+        },
+        "abort": {
+            "already_configured": "Un capteur avec ce nom (Identifiant) existe déjà",
+            "reconfigure_successful": "La reconfiguration a réussi"
+        },
+        "error": {
+            "cannot_connect": "Erreur : Impossible de se connecter",
+            "mismatch_values": "Le nombre d'ID de cryptomonnaies ({crypto_count}) ne correspond pas au nombre de multiplicateurs ({multiplier_count})"
+        }
+    }
+}
