@@ -8,7 +8,7 @@ import urllib.error
 from datetime import datetime, timedelta
 
 from homeassistant import config_entries
-from homeassistant.components.sensor.const import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass, SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -248,7 +248,9 @@ class CryptoDataCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Error fetching data: {err}")
 
 
-class CryptoinfoSensor(CoordinatorEntity):
+class CryptoinfoSensor(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         coordinator: CryptoDataCoordinator,
@@ -261,41 +263,28 @@ class CryptoinfoSensor(CoordinatorEntity):
         super().__init__(coordinator)
         self.cryptocurrency_id = cryptocurrency_id
         self.currency_name = currency_name
-        self._unit_of_measurement = unit_of_measurement
         self.multiplier = multiplier
+
+        # Modern HA 2025 entity properties
         self._attr_device_class = SensorDeviceClass.MONETARY
-        self.entity_id = "sensor." + (
-            (SENSOR_PREFIX + (id_name + " " if len(id_name) > 0 else ""))
-            .lower()
-            .replace(" ", "_")
-            + cryptocurrency_id
-            + "_"
-            + currency_name
-        )
-        self._icon = "mdi:bitcoin"
-        self._state_class = "measurement"
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_native_unit_of_measurement = unit_of_measurement or None
+        self._attr_translation_key = "crypto_price"
+        self._attr_icon = "mdi:bitcoin"
+
+        # Entity naming
+        self._attr_name = f"{cryptocurrency_id.capitalize()} {currency_name.upper()}"
+        if id_name:
+            self._attr_name = f"{id_name} {self._attr_name}"
+
+        # Unique ID
         self._attr_unique_id = (
-            SENSOR_PREFIX
-            + (id_name + " " if len(id_name) > 0 else "")
-            + cryptocurrency_id
-            + currency_name
+            f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
         )
 
     @property
-    def icon(self):
-        return self._icon
-
-    @property
-    def state_class(self):
-        return self._state_class
-
-    @property
-    def unit_of_measurement(self):
-        return self._unit_of_measurement
-
-    @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         if self.coordinator.data and self.cryptocurrency_id in self.coordinator.data:
             return float(
                 self.coordinator.data[self.cryptocurrency_id]["current_price"]
