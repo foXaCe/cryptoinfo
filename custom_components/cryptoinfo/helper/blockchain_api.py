@@ -152,38 +152,25 @@ class CKPoolAPI:
         import re
         import json
 
-        # EU pool embeds JSON in the HTML within script tags
-        # Look for hashrate data in the embedded JSON
-        pattern = r'"hashrate1m[^}]+bestshare[^}]+"'
-        match = re.search(r'\{[^{}]*"hashrate1m"[^{}]+\}', html)
-
-        if match:
-            try:
-                json_str = match.group(0)
-                data = json.loads(json_str)
-                _LOGGER.debug(f"Extracted JSON from HTML: {data}")
-                return data
-            except json.JSONDecodeError as e:
-                _LOGGER.debug(f"JSON decode error: {e}, json_str: {json_str[:200]}")
-                pass
-
-        # Fallback: extract individual fields
+        # EU pool embeds JSON in the HTML within script tags, escaped as JavaScript strings
+        # Pattern matches escaped JSON: \"hashrate1m\":\"1110000000000\"
         try:
-            hashrate1m = re.search(r'"hashrate1m":\s*"?(\d+)"?', html)
-            hashrate1hr = re.search(r'"hashrate1hr":\s*"?(\d+)"?', html)
-            hashrate1d = re.search(r'"hashrate1d":\s*"?(\d+)"?', html)
-            workers = re.search(r'"workers":\s*"?(\d+)"?', html)
-            bestshare = re.search(r'"bestshare":\s*"?(\d+\.?\d*)"?', html)
+            # Extract individual fields from escaped JSON strings
+            hashrate1m = re.search(r'\\"hashrate1m\\":\\"(\d+)\\"', html)
+            hashrate1hr = re.search(r'\\"hashrate1hr\\":\\"(\d+)\\"', html)
+            hashrate1d = re.search(r'\\"hashrate1d\\":\\"(\d+)\\"', html)
+            workers = re.search(r'\\"workers\\":\\"(\d+)\\"', html)
+            bestshare = re.search(r'\\"bestshare\\":\\"(\d+\.?\d*)\\"', html)
 
             if hashrate1m:
                 data = {
-                    "hashrate1m": int(hashrate1m.group(1)) if hashrate1m else 0,
+                    "hashrate1m": int(hashrate1m.group(1)),
                     "hashrate1hr": int(hashrate1hr.group(1)) if hashrate1hr else 0,
                     "hashrate1d": int(hashrate1d.group(1)) if hashrate1d else 0,
                     "workers": int(workers.group(1)) if workers else 0,
                     "bestshare": float(bestshare.group(1)) if bestshare else 0,
                 }
-                _LOGGER.debug(f"Extracted fields from HTML: {data}")
+                _LOGGER.debug(f"Extracted fields from escaped HTML: {data}")
                 return data
         except (ValueError, AttributeError) as e:
             _LOGGER.debug(f"Field extraction error: {e}")
