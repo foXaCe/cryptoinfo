@@ -191,13 +191,13 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "multiplier_count": len(multipliers_list),
                 }
             else:
-                # Build final config
+                # Build final config - preserve optional fields from existing entry if not provided
                 final_config = {
-                    CONF_ID: user_input.get(CONF_ID, ""),
+                    CONF_ID: user_input.get(CONF_ID) or entry.data.get(CONF_ID, ""),
                     CONF_CRYPTOCURRENCY_IDS: ", ".join(self._selected_cryptos),
                     CONF_MULTIPLIERS: ", ".join(multipliers_list),
                     CONF_CURRENCY_NAME: user_input[CONF_CURRENCY_NAME],
-                    CONF_UNIT_OF_MEASUREMENT: user_input.get(CONF_UNIT_OF_MEASUREMENT, ""),
+                    CONF_UNIT_OF_MEASUREMENT: user_input.get(CONF_UNIT_OF_MEASUREMENT) or entry.data.get(CONF_UNIT_OF_MEASUREMENT, ""),
                     CONF_UPDATE_FREQUENCY: user_input[CONF_UPDATE_FREQUENCY],
                     CONF_MIN_TIME_BETWEEN_REQUESTS: user_input[CONF_MIN_TIME_BETWEEN_REQUESTS],
                 }
@@ -237,7 +237,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Optional(
                     CONF_ID,
-                    description={"suggested_value": entry.data.get(CONF_ID, "")},
+                    default=entry.data.get(CONF_ID, ""),
                 ): str,
                 vol.Required(
                     CONF_MULTIPLIERS,
@@ -249,7 +249,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): str,
                 vol.Optional(
                     CONF_UNIT_OF_MEASUREMENT,
-                    description={"suggested_value": entry.data.get(CONF_UNIT_OF_MEASUREMENT, "")},
+                    default=entry.data.get(CONF_UNIT_OF_MEASUREMENT, ""),
                 ): str,
                 vol.Required(
                     CONF_UPDATE_FREQUENCY,
