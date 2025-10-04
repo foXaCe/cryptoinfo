@@ -213,6 +213,26 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data=final_config,
                 )
 
+                # Remove orphaned entities (cryptos that were removed from selection)
+                from homeassistant.helpers import entity_registry as er
+                from .const.const import SENSOR_PREFIX
+                entity_reg = er.async_get(self.hass)
+
+                old_crypto_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+                removed_cryptos = [id for id in old_crypto_ids if id not in self._selected_cryptos]
+
+                if removed_cryptos:
+                    _LOGGER.debug(f"Removing entities for removed cryptos: {removed_cryptos}")
+                    for crypto_id in removed_cryptos:
+                        # Build unique_id for this crypto
+                        unique_id = f"{SENSOR_PREFIX}{final_config[CONF_ID]}_{crypto_id}_{final_config[CONF_CURRENCY_NAME]}".lower().replace(" ", "_")
+                        # Find entity by unique_id
+                        for entity_id, entity_entry in entity_reg.entities.items():
+                            if entity_entry.unique_id == unique_id:
+                                entity_reg.async_remove(entity_id)
+                                _LOGGER.debug(f"Removed entity {entity_id} with unique_id {unique_id}")
+                                break
+
                 # Reload the entry
                 await self.hass.config_entries.async_reload(entry.entry_id)
 

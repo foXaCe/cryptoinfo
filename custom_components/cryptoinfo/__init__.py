@@ -13,8 +13,17 @@ async def async_setup_entry(hass, entry) -> bool:
         await hass.data[DOMAIN].async_initialize()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register update listener for reconfiguration
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
     _LOGGER.debug("__init__ set up")
     return True
+
+
+async def async_reload_entry(hass, entry) -> None:
+    """Reload config entry."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass, entry) -> bool:

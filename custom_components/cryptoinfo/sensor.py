@@ -267,7 +267,7 @@ class CryptoinfoSensor(CoordinatorEntity, SensorEntity):
 
         # Modern HA 2025 entity properties
         self._attr_device_class = SensorDeviceClass.MONETARY
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_state_class = None  # No state class for monetary prices
         self._attr_native_unit_of_measurement = unit_of_measurement or None
         self._attr_translation_key = "crypto_price"
         self._attr_icon = "mdi:bitcoin"
