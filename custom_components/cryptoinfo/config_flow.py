@@ -376,7 +376,46 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
-        """Handle a flow initialized by the user - Step 1: Search or browse."""
+        """Handle a flow initialized by the user - Step 1: Choose sensor type."""
+        from .const.const import (
+            CONF_SENSOR_TYPE,
+            SENSOR_TYPE_PRICE,
+            SENSOR_TYPE_BTC_NETWORK,
+            SENSOR_TYPE_BTC_MEMPOOL,
+            SENSOR_TYPE_CKPOOL_MINING,
+        )
+
+        if user_input is not None:
+            sensor_type = user_input.get(CONF_SENSOR_TYPE)
+            self._config_data[CONF_SENSOR_TYPE] = sensor_type
+
+            if sensor_type == SENSOR_TYPE_PRICE:
+                return await self.async_step_price_search()
+            elif sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
+                return await self.async_step_mining_config()
+
+        # Show sensor type selection
+        sensor_type_schema = vol.Schema(
+            {
+                vol.Required(CONF_SENSOR_TYPE, default=SENSOR_TYPE_PRICE): vol.In({
+                    SENSOR_TYPE_PRICE: "💰 Cryptocurrency Price Tracker",
+                    SENSOR_TYPE_BTC_NETWORK: "⛓️ Bitcoin Network Stats",
+                    SENSOR_TYPE_BTC_MEMPOOL: "📦 Bitcoin Mempool Stats",
+                    SENSOR_TYPE_CKPOOL_MINING: "⛏️ CKPool Solo Mining Stats",
+                }),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=sensor_type_schema,
+            description_placeholders={
+                "info": "Choose the type of sensor you want to create."
+            },
+        )
+
+    async def async_step_price_search(self, user_input: dict[str, Any] | None = None):
+        """Handle cryptocurrency price sensor - Step 2: Search or browse."""
         errors = {}
 
         # Initialize data if needed
@@ -406,7 +445,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="price_search",
             data_schema=search_schema,
             errors=errors,
             description_placeholders={
@@ -450,7 +489,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not crypto_options:
             errors["base"] = "no_results"
-            return await self.async_step_user()
+            return await self.async_step_price_search()
 
         select_schema = vol.Schema(
             {
@@ -556,4 +595,79 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "selected_cryptos": crypto_names,
                 **errors.get("count_context", {}),
             },
+        )
+
+    async def async_step_mining_config(self, user_input: dict[str, Any] | None = None):
+        """Handle mining sensor configuration."""
+        from .const.const import (
+            CONF_BTC_ADDRESS,
+            CONF_SENSOR_TYPE,
+            SENSOR_TYPE_BTC_NETWORK,
+            SENSOR_TYPE_BTC_MEMPOOL,
+            SENSOR_TYPE_CKPOOL_MINING,
+        )
+
+        errors = {}
+        sensor_type = self._config_data.get(CONF_SENSOR_TYPE)
+
+        if user_input is not None:
+            final_config = {
+                CONF_SENSOR_TYPE: sensor_type,
+                CONF_ID: user_input.get(CONF_ID, ""),
+                CONF_UPDATE_FREQUENCY: user_input.get(CONF_UPDATE_FREQUENCY, 5),
+            }
+
+            # Add BTC address if CKPool sensor
+            if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+                btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip()
+                if not btc_address:
+                    errors["base"] = "btc_address_required"
+                else:
+                    final_config[CONF_BTC_ADDRESS] = btc_address
+
+            if not errors:
+                try:
+                    # Use sensor type + ID as unique ID
+                    unique_id = f"{sensor_type}_{final_config[CONF_ID]}".lower().replace(" ", "_")
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured()
+
+                    sensor_names = {
+                        SENSOR_TYPE_BTC_NETWORK: "Bitcoin Network",
+                        SENSOR_TYPE_BTC_MEMPOOL: "Bitcoin Mempool",
+                        SENSOR_TYPE_CKPOOL_MINING: "CKPool Mining",
+                    }
+
+                    return self.async_create_entry(
+                        title=f"{sensor_names.get(sensor_type, 'Mining')} - {final_config[CONF_ID] or 'Stats'}",
+                        data=final_config,
+                    )
+                except Exception as ex:
+                    _LOGGER.error(f"Error creating mining sensor: {ex}")
+                    errors["base"] = f"Error creating entry: {ex}"
+
+        # Build schema based on sensor type
+        if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+            mining_schema = vol.Schema(
+                {
+                    vol.Optional(CONF_ID, description={"suggested_value": "My Mining"}): str,
+                    vol.Required(CONF_BTC_ADDRESS): str,
+                    vol.Required(CONF_UPDATE_FREQUENCY, default=5): cv.positive_float,
+                }
+            )
+            description = "Configure CKPool solo mining sensor. Enter your Bitcoin address used for mining."
+        else:
+            mining_schema = vol.Schema(
+                {
+                    vol.Optional(CONF_ID, description={"suggested_value": "BTC"}): str,
+                    vol.Required(CONF_UPDATE_FREQUENCY, default=5): cv.positive_float,
+                }
+            )
+            description = f"Configure {sensor_type.replace('_', ' ').title()} sensor."
+
+        return self.async_show_form(
+            step_id="mining_config",
+            data_schema=mining_schema,
+            errors=errors,
+            description_placeholders={"info": description},
         )

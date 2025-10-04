@@ -2,6 +2,7 @@ import logging
 
 DOMAIN = "cryptoinfo"
 
+# Price sensor configuration
 CONF_ID = "id"
 CONF_CRYPTOCURRENCY_IDS = "cryptocurrency_ids"
 CONF_CURRENCY_NAME = "currency_name"
@@ -9,6 +10,17 @@ CONF_MULTIPLIERS = "multipliers"
 CONF_UPDATE_FREQUENCY = "update_frequency"
 CONF_UNIT_OF_MEASUREMENT = "unit_of_measurement"
 CONF_MIN_TIME_BETWEEN_REQUESTS = "min_time_between_requests"
+
+# Mining sensor configuration
+CONF_SENSOR_TYPE = "sensor_type"
+CONF_BTC_ADDRESS = "btc_address"
+CONF_POOL_URL = "pool_url"
+
+# Sensor types
+SENSOR_TYPE_PRICE = "price"
+SENSOR_TYPE_BTC_NETWORK = "btc_network"
+SENSOR_TYPE_BTC_MEMPOOL = "btc_mempool"
+SENSOR_TYPE_CKPOOL_MINING = "ckpool_mining"
 
 SENSOR_PREFIX = "Cryptoinfo "
 ATTR_LAST_UPDATE = "last_update"

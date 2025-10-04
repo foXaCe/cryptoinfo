@@ -62,6 +62,24 @@ async def async_setup_entry(
 
     config = config_entry.data
 
+    # Check if this is a mining sensor
+    from .const.const import (
+        CONF_SENSOR_TYPE,
+        SENSOR_TYPE_PRICE,
+        SENSOR_TYPE_BTC_NETWORK,
+        SENSOR_TYPE_BTC_MEMPOOL,
+        SENSOR_TYPE_CKPOOL_MINING,
+    )
+
+    sensor_type = config.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+
+    # Route to mining sensors if applicable
+    if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
+        from .mining_sensor import async_setup_mining_sensors
+        return await async_setup_mining_sensors(hass, config, async_add_entities)
+
+    # Continue with price sensors
+
     id_name = (config.get(CONF_ID) or "").strip()
     cryptocurrency_ids = config.get(CONF_CRYPTOCURRENCY_IDS).lower().strip()
     currency_name = config.get(CONF_CURRENCY_NAME).strip()
