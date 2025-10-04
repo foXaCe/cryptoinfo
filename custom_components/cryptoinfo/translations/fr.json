@@ -42,11 +42,30 @@
                 }
             },
             "reconfigure": {
-                "title": "Mettre à jour le capteur existant",
-                "description": "Pour plus d'informations, consultez la [documentation](https://github.com/heyajohnny/cryptoinfo).",
+                "title": "Rechercher des cryptomonnaies",
+                "description": "Recherchez des cryptomonnaies à ajouter ou modifier. Laissez vide pour parcourir le top 100.",
+                "data": {
+                    "search_query": "Recherche (optionnel)"
+                },
+                "data_description": {
+                    "search_query": "Entrez un nom, symbole ou ID de cryptomonnaie. Exemple : bitcoin, btc, ethereum"
+                }
+            },
+            "reconfigure_select": {
+                "title": "Sélectionner des cryptomonnaies",
+                "description": "Sélectionnez les cryptomonnaies à suivre. Votre sélection actuelle sera pré-sélectionnée.",
+                "data": {
+                    "selected_cryptos": "Cryptomonnaies"
+                },
+                "data_description": {
+                    "selected_cryptos": "Sélectionnez les cryptomonnaies que vous souhaitez suivre"
+                }
+            },
+            "reconfigure_configure": {
+                "title": "Mettre à jour la configuration du capteur",
+                "description": "Configurez votre capteur de cryptomonnaies. Sélectionné : {selected_cryptos}",
                 "data": {
                     "id": "Identifiant",
-                    "cryptocurrency_ids": "ID de cryptomonnaies",
                     "currency_name": "Nom de la devise",
                     "unit_of_measurement": "Unité de mesure",
                     "multipliers": "Multiplicateurs",
@@ -54,13 +73,12 @@
                     "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
                 },
                 "data_description": {
-                    "id": "Nom unique pour le capteur.",
-                    "currency_name": "L'un des noms de devises dans [cette liste](https://api.coingecko.com/api/v3/simple/supported_vs_currencies).",
-                    "cryptocurrency_ids": "Les valeurs 'id' d'une ou plusieurs pièces/jetons de [cette liste](https://api.coingecko.com/api/v3/coins/list), séparées par des virgules.",
-                    "unit_of_measurement": "Voulez-vous utiliser un symbole de devise ? ([Liste de symboles](https://en.wikipedia.org/wiki/Currency_symbol#List_of_currency_symbols_currently_in_use))",
-                    "multipliers": "Le nombre de pièces/jetons (séparés par une virgule). Le nombre de multiplicateurs doit correspondre au nombre d'ID de cryptomonnaies.",
-                    "update_frequency": "À quelle fréquence la valeur doit-elle être actualisée ? Attention à la [limite de taux CoinGecko](https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan) lors du suivi de plusieurs cryptomonnaies.",
-                    "min_time_between_requests": "Le temps minimum entre les autres entités et cette entité pour effectuer une requête de données à l'API. (Cette propriété est partagée et identique pour chaque entité.)"
+                    "id": "Nom unique pour ce capteur (ex : 'Mon Portefeuille', 'Trading').",
+                    "currency_name": "Devise d'affichage des prix (usd, eur, gbp, etc.).",
+                    "unit_of_measurement": "Symbole de devise à afficher (ex : $, €, £). Laissez vide pour aucun.",
+                    "multipliers": "Quantité de chaque cryptomonnaie possédée, séparées par des virgules. Doit correspondre au nombre de cryptos sélectionnées.",
+                    "update_frequency": "Fréquence de rafraîchissement des prix (minutes). Minimum 1 minute.",
+                    "min_time_between_requests": "Délai minimum entre les requêtes API (minutes). Partagé entre tous les capteurs."
                 }
             }
         },

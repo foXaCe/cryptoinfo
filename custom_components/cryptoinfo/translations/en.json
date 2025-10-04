@@ -42,11 +42,30 @@
                 }
             },
             "reconfigure": {
-                "title": "Update existing sensor",
-                "description": "For more information, see the [documentation](https://github.com/heyajohnny/cryptoinfo).",
+                "title": "Search for cryptocurrencies",
+                "description": "Search for cryptocurrencies to add or modify. Leave empty to browse the top 100.",
+                "data": {
+                    "search_query": "Search (optional)"
+                },
+                "data_description": {
+                    "search_query": "Enter a cryptocurrency name, symbol, or ID to search. Example: bitcoin, btc, ethereum"
+                }
+            },
+            "reconfigure_select": {
+                "title": "Select cryptocurrencies",
+                "description": "Select cryptocurrencies to track. Your current selection will be pre-selected.",
+                "data": {
+                    "selected_cryptos": "Cryptocurrencies"
+                },
+                "data_description": {
+                    "selected_cryptos": "Select the cryptocurrencies you want to track"
+                }
+            },
+            "reconfigure_configure": {
+                "title": "Update sensor configuration",
+                "description": "Configure your cryptocurrency sensor. Selected: {selected_cryptos}",
                 "data": {
                     "id": "Identifier",
-                    "cryptocurrency_ids": "Cryptocurrency id's",
                     "currency_name": "Currency Name",
                     "unit_of_measurement": "Unit of measurement",
                     "multipliers": "Multipliers",
@@ -54,13 +73,12 @@
                     "min_time_between_requests": "Minimum time between requests (minutes)"
                 },
                 "data_description": {
-                    "id": "Unique name for the sensor.",
-                    "currency_name": "One of the currency names in [this list](https://api.coingecko.com/api/v3/simple/supported_vs_currencies).",
-                    "cryptocurrency_ids": "The 'id' values from one or more of the coins/tokens in [this list](https://api.coingecko.com/api/v3/coins/list), separated by commas.",
-                    "unit_of_measurement": "Do you want to use a currency symbol? ([Symbol list](https://en.wikipedia.org/wiki/Currency_symbol#List_of_currency_symbols_currently_in_use))",
-                    "multipliers": "The number of coins/tokens (separated by a comma). The number of multipliers must match the number of cryptocurrency IDs.",
-                    "update_frequency": "How often should the value be refreshed? Beware of the [CoinGecko rate limit](https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan) when tracking multiple cryptocurrencies.",
-                    "min_time_between_requests": "The minimum time between the other entities and this entity to make a data request to the API. (This property is shared and the same for every entity.)"
+                    "id": "Unique name for this sensor (e.g., 'My Wallet', 'Trading Portfolio').",
+                    "currency_name": "Currency to display prices in (usd, eur, gbp, etc.).",
+                    "unit_of_measurement": "Currency symbol to display (e.g., $, €, £). Leave empty for none.",
+                    "multipliers": "Amount of each cryptocurrency you own, separated by commas. Must match the number of selected cryptocurrencies.",
+                    "update_frequency": "How often to refresh prices (minutes). Minimum 1 minute.",
+                    "min_time_between_requests": "Minimum delay between API requests (minutes). Shared across all sensors."
                 }
             }
         },

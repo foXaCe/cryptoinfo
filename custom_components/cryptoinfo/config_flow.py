@@ -77,48 +77,200 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return errors
 
     async def async_step_reconfigure(self, user_input: Mapping[str, Any] | None = None):
+        """Handle reconfiguration flow - Step 1: Search or browse."""
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         assert entry
-        if user_input:
-            # Convert Mapping to dict to make it mutable
-            user_input = dict(user_input)
 
-            # Ensure empty strings are preserved for these optional properties
-            if CONF_ID not in user_input:
-                user_input[CONF_ID] = ""
-            if CONF_UNIT_OF_MEASUREMENT not in user_input:
-                user_input[CONF_UNIT_OF_MEASUREMENT] = ""
+        # Store entry data for later use
+        self._config_data["entry"] = entry
 
-            # Validate the input
-            validation_result = await self._validate_input(user_input)
-            if validation_result:
-                count_context = validation_result.pop("count_context", {})
-                invalid_context = validation_result.pop("invalid_context", {})
-                return await self._redo_configuration(
-                    entry.data, validation_result, {**count_context, **invalid_context}
-                )
+        # Initialize data if needed
+        if DOMAIN not in self.hass.data:
+            self.hass.data[DOMAIN] = CryptoInfoData(self.hass)
+            await self.hass.data[DOMAIN].async_initialize()
 
-            # Update the shared data
-            if DOMAIN in self.hass.data:
-                self.hass.data[DOMAIN].min_time_between_requests = user_input[
+        # Load coin list
+        if not self._coin_list:
+            api = CoinGeckoAPI(self.hass)
+            self._coin_list = await api.get_coin_list()
+
+        if user_input is not None:
+            # Store search query if provided
+            search_query = user_input.get("search_query", "").strip()
+            self._config_data["search_query"] = search_query
+            return await self.async_step_reconfigure_select()
+
+        # Show search form
+        search_schema = vol.Schema(
+            {
+                vol.Optional(
+                    "search_query",
+                    description={"suggested_value": ""},
+                ): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=search_schema,
+            errors={},
+            description_placeholders={
+                "info": "Search for cryptocurrencies to add or modify. Leave empty to see top 100 cryptocurrencies."
+            },
+        )
+
+    async def async_step_reconfigure_select(self, user_input: dict[str, Any] | None = None):
+        """Handle crypto selection for reconfiguration - Step 2."""
+        errors = {}
+        entry = self._config_data["entry"]
+
+        if user_input is not None:
+            selected = user_input.get("selected_cryptos", [])
+            if not selected:
+                errors["base"] = "no_crypto_selected"
+            else:
+                self._selected_cryptos = selected
+                return await self.async_step_reconfigure_configure()
+
+        # Filter coin list based on search query
+        search_query = self._config_data.get("search_query", "").lower()
+
+        if search_query:
+            filtered_coins = [
+                coin for coin in self._coin_list
+                if search_query in coin["id"].lower()
+                or search_query in coin["name"].lower()
+                or search_query in coin["symbol"].lower()
+            ][:100]
+        else:
+            filtered_coins = self._coin_list[:100]
+
+        # Create options for selector
+        crypto_options = {
+            coin["id"]: f"{coin['name']} ({coin['symbol'].upper()})"
+            for coin in filtered_coins
+        }
+
+        if not crypto_options:
+            errors["base"] = "no_results"
+            return await self.async_step_reconfigure()
+
+        # Pre-select existing cryptocurrencies
+        existing_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+        default_selected = [id for id in existing_ids if id in crypto_options]
+
+        select_schema = vol.Schema(
+            {
+                vol.Required(
+                    "selected_cryptos",
+                    default=default_selected
+                ): cv.multi_select(crypto_options),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure_select",
+            data_schema=select_schema,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure_configure(self, user_input: dict[str, Any] | None = None):
+        """Handle configuration for reconfiguration - Step 3."""
+        errors = {}
+        entry = self._config_data["entry"]
+        default_min_time = self.hass.data[DOMAIN].min_time_between_requests
+
+        if user_input is not None:
+            multipliers = user_input.get(CONF_MULTIPLIERS, "").strip()
+            multipliers_list = [m.strip() for m in multipliers.split(",") if m.strip()]
+
+            if len(multipliers_list) != len(self._selected_cryptos):
+                errors["base"] = "mismatch_values"
+                errors["count_context"] = {
+                    "crypto_count": len(self._selected_cryptos),
+                    "multiplier_count": len(multipliers_list),
+                }
+            else:
+                # Build final config
+                final_config = {
+                    CONF_ID: user_input.get(CONF_ID, ""),
+                    CONF_CRYPTOCURRENCY_IDS: ", ".join(self._selected_cryptos),
+                    CONF_MULTIPLIERS: ", ".join(multipliers_list),
+                    CONF_CURRENCY_NAME: user_input[CONF_CURRENCY_NAME],
+                    CONF_UNIT_OF_MEASUREMENT: user_input.get(CONF_UNIT_OF_MEASUREMENT, ""),
+                    CONF_UPDATE_FREQUENCY: user_input[CONF_UPDATE_FREQUENCY],
+                    CONF_MIN_TIME_BETWEEN_REQUESTS: user_input[CONF_MIN_TIME_BETWEEN_REQUESTS],
+                }
+
+                # Update shared data
+                self.hass.data[DOMAIN].min_time_between_requests = final_config[
                     CONF_MIN_TIME_BETWEEN_REQUESTS
                 ]
 
-            # Create new data combining old entry data with new user input
-            new_data = {**entry.data, **user_input}
+                # Update entry data
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    data=final_config,
+                )
 
-            # Update entry data
-            self.hass.config_entries.async_update_entry(
-                entry,
-                data=new_data,
-            )
+                # Reload the entry
+                await self.hass.config_entries.async_reload(entry.entry_id)
 
-            # Reload the entry
-            await self.hass.config_entries.async_reload(entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
 
-            return self.async_abort(reason="reconfigure_successful")
+        # Get existing multipliers or create defaults
+        existing_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+        existing_multipliers = [m.strip() for m in entry.data.get(CONF_MULTIPLIERS, "1").split(",")]
 
-        return await self._redo_configuration(entry.data)
+        # Build default multipliers for selected cryptos
+        default_multipliers = []
+        for crypto_id in self._selected_cryptos:
+            if crypto_id in existing_ids:
+                idx = existing_ids.index(crypto_id)
+                default_multipliers.append(existing_multipliers[idx] if idx < len(existing_multipliers) else "1")
+            else:
+                default_multipliers.append("1")
+
+        crypto_names = ", ".join(self._selected_cryptos)
+
+        configure_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_ID,
+                    description={"suggested_value": entry.data.get(CONF_ID, "")},
+                ): str,
+                vol.Required(
+                    CONF_MULTIPLIERS,
+                    default=", ".join(default_multipliers),
+                ): str,
+                vol.Required(
+                    CONF_CURRENCY_NAME,
+                    default=entry.data.get(CONF_CURRENCY_NAME, "usd"),
+                ): str,
+                vol.Optional(
+                    CONF_UNIT_OF_MEASUREMENT,
+                    description={"suggested_value": entry.data.get(CONF_UNIT_OF_MEASUREMENT, "")},
+                ): str,
+                vol.Required(
+                    CONF_UPDATE_FREQUENCY,
+                    default=entry.data.get(CONF_UPDATE_FREQUENCY, 5),
+                ): cv.positive_float,
+                vol.Required(
+                    CONF_MIN_TIME_BETWEEN_REQUESTS,
+                    default=default_min_time,
+                ): cv.positive_float,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure_configure",
+            data_schema=configure_schema,
+            errors=errors,
+            description_placeholders={
+                "selected_cryptos": crypto_names,
+                **errors.get("count_context", {}),
+            },
+        )
 
     async def _redo_configuration(
         self,
