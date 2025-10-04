@@ -139,13 +139,23 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         search_query = self._config_data.get("search_query", "").lower()
 
         if search_query:
-            # Search mode: show search results
-            filtered_coins = [
+            # Search mode: show search results + ALWAYS include existing cryptos
+            search_results = [
                 coin for coin in self._coin_list
                 if search_query in coin["id"].lower()
                 or search_query in coin["name"].lower()
                 or search_query in coin["symbol"].lower()
             ][:100]
+
+            # Merge search results with existing cryptos (avoid duplicates)
+            seen = {coin["id"] for coin in search_results}
+            filtered_coins = search_results.copy()
+
+            # Add existing cryptos that aren't in search results
+            for coin in self._coin_list:
+                if coin["id"] in existing_ids and coin["id"] not in seen:
+                    filtered_coins.append(coin)
+                    seen.add(coin["id"])
         else:
             # Default mode: show top 10 by market cap + existing cryptos
             api = CoinGeckoAPI(self.hass)
@@ -188,7 +198,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=select_schema,
             errors=errors,
             description_placeholders={
-                "info": "Top 10 by market cap shown by default. Use search to find others." if not search_query else f"Search results for '{search_query}'"
+                "info": f"Top 10 by market cap shown. Your {len(existing_ids)} current crypto(s) are pre-selected." if not search_query else f"Search results for '{search_query}'. Your current cryptos are also shown and pre-selected."
             },
         )
 
