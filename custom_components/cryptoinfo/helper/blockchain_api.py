@@ -150,25 +150,35 @@ class CKPoolAPI:
     def _extract_json_from_html(self, html: str) -> dict | None:
         """Extract JSON data from Next.js HTML page."""
         import re
-        import json
 
         # EU pool embeds JSON in the HTML within script tags, escaped as JavaScript strings
         # Pattern matches escaped JSON: \"hashrate1m\":\"1110000000000\"
         try:
-            # Extract individual fields from escaped JSON strings
+            # Extract hashrate fields (always strings in quotes)
             hashrate1m = re.search(r'\\"hashrate1m\\":\\"(\d+)\\"', html)
             hashrate1hr = re.search(r'\\"hashrate1hr\\":\\"(\d+)\\"', html)
             hashrate1d = re.search(r'\\"hashrate1d\\":\\"(\d+)\\"', html)
-            workers = re.search(r'\\"workers\\":\\"(\d+)\\"', html)
-            bestshare = re.search(r'\\"bestshare\\":\\"(\d+\.?\d*)\\"', html)
+
+            # Count workers in the workers array
+            workers_match = re.search(r'\\"workers\\":\[([^\]]+)\]', html)
+            workers_count = 0
+            if workers_match:
+                # Count objects by counting "id" fields
+                worker_ids = re.findall(r'\\"id\\"', workers_match.group(1))
+                workers_count = len(worker_ids)
+
+            # Extract bestShare (JavaScript number, not quoted) and bestEver (quoted string)
+            bestShare = re.search(r'\\"bestShare\\":(\d+\.?\d*)', html)
+            bestEver = re.search(r'\\"bestEver\\":\\"(\d+)', html)
 
             if hashrate1m:
                 data = {
                     "hashrate1m": int(hashrate1m.group(1)),
                     "hashrate1hr": int(hashrate1hr.group(1)) if hashrate1hr else 0,
                     "hashrate1d": int(hashrate1d.group(1)) if hashrate1d else 0,
-                    "workers": int(workers.group(1)) if workers else 0,
-                    "bestshare": float(bestshare.group(1)) if bestshare else 0,
+                    "workers": workers_count,
+                    "bestshare": float(bestShare.group(1)) if bestShare else 0,
+                    "bestever": float(bestEver.group(1)) if bestEver else 0,
                 }
                 _LOGGER.debug(f"Extracted fields from escaped HTML: {data}")
                 return data
@@ -216,6 +226,7 @@ class CKPoolAPI:
             "hashrate_1h": convert_hashrate(data.get("hashrate1hr", 0)),
             "hashrate_24h": convert_hashrate(data.get("hashrate1d", 0)),
             "best_share": float(data.get("bestshare", 0)),
+            "best_ever": float(data.get("bestever", 0)),
             "workers": int(data.get("workers", 0)),
             "blocks_found": 0,  # Not available in JSON
         }

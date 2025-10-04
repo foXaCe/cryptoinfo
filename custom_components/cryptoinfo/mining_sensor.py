@@ -218,11 +218,31 @@ class CKPoolMiningSensor(CoordinatorEntity, SensorEntity):
             return {}
 
         data = self.coordinator.data
+
+        # Format best_share for display
+        best_share = data.get("best_share", 0)
+        if best_share > 1e9:
+            best_share_display = f"{best_share/1e9:.2f} G"
+        elif best_share > 1e6:
+            best_share_display = f"{best_share/1e6:.2f} M"
+        else:
+            best_share_display = f"{best_share:.0f}"
+
+        # Format best_ever for display
+        best_ever = data.get("best_ever", 0)
+        if best_ever > 1e9:
+            best_ever_display = f"{best_ever/1e9:.2f} G"
+        elif best_ever > 1e6:
+            best_ever_display = f"{best_ever/1e6:.2f} M"
+        else:
+            best_ever_display = f"{best_ever:.0f}"
+
         return {
             "btc_address": self.btc_address,
             "hashrate_1h": round(data.get("hashrate_1h", 0), 2),
             "hashrate_24h": round(data.get("hashrate_24h", 0), 2),
-            "best_share": data.get("best_share", 0),
+            "best_share": best_share_display,
+            "best_ever": best_ever_display,
             "workers": data.get("workers", 0),
             "blocks_found": data.get("blocks_found", 0),
         }
