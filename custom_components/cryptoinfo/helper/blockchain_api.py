@@ -102,47 +102,57 @@ class CKPoolAPI:
             url = f"https://solo.ckpool.org/users/{btc_address}"
 
             async with session.get(url) as response:
-                response.raise_for_status()
-                html = await response.text()
+                # 404 means address has no mining history - return empty stats
+                if response.status == 404:
+                    _LOGGER.debug(f"No mining history found for {btc_address} on CKPool")
+                    return {
+                        "hashrate": 0,
+                        "hashrate_1h": 0,
+                        "hashrate_24h": 0,
+                        "best_share": 0,
+                        "workers": 0,
+                        "blocks_found": 0,
+                    }
 
-                # Parse HTML to extract stats
-                # CKPool doesn't have a JSON API, so we parse the HTML
-                stats = self._parse_ckpool_html(html)
-                return stats
+                response.raise_for_status()
+                data = await response.json()
+
+                # CKPool returns JSON with hashrate data
+                return self._parse_ckpool_data(data)
         except Exception as err:
             _LOGGER.error(f"Error fetching CKPool user stats for {btc_address}: {err}")
             return None
 
-    def _parse_ckpool_html(self, html: str) -> dict:
-        """Parse CKPool HTML to extract mining statistics."""
-        import re
+    def _parse_ckpool_data(self, data: dict) -> dict:
+        """Parse CKPool JSON data to extract mining statistics."""
 
-        stats = {
-            "hashrate": 0,
-            "hashrate_1h": 0,
-            "hashrate_24h": 0,
-            "best_share": 0,
-            "workers": 0,
-            "blocks_found": 0,
+        # Convert hashrate string (e.g., "3.12T") to GH/s
+        def convert_hashrate(hashrate_str: str) -> float:
+            """Convert hashrate string to GH/s."""
+            if not hashrate_str or hashrate_str == "0":
+                return 0.0
+
+            try:
+                # Check if last char is a unit letter
+                if hashrate_str[-1].isalpha():
+                    value = float(hashrate_str[:-1])
+                    unit = hashrate_str[-1]
+                else:
+                    # No unit, assume it's already in GH/s
+                    value = float(hashrate_str)
+                    unit = "G"
+
+                # Convert to GH/s
+                multipliers = {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3, "P": 1e6}
+                return value * multipliers.get(unit, 1)
+            except (ValueError, IndexError):
+                return 0.0
+
+        return {
+            "hashrate": convert_hashrate(data.get("hashrate1m", "0")),
+            "hashrate_1h": convert_hashrate(data.get("hashrate1hr", "0")),
+            "hashrate_24h": convert_hashrate(data.get("hashrate1d", "0")),
+            "best_share": float(data.get("bestshare", 0)),
+            "workers": int(data.get("workers", 0)),
+            "blocks_found": 0,  # Not available in JSON
         }
-
-        # Extract hashrate (example pattern, may need adjustment)
-        hashrate_match = re.search(r'Hashrate:\s*([\d.]+)\s*([KMGTP]H/s)', html)
-        if hashrate_match:
-            value = float(hashrate_match.group(1))
-            unit = hashrate_match.group(2)
-            # Convert to GH/s
-            multipliers = {"KH/s": 1e-6, "MH/s": 1e-3, "GH/s": 1, "TH/s": 1e3, "PH/s": 1e6}
-            stats["hashrate"] = value * multipliers.get(unit, 1)
-
-        # Extract best share
-        share_match = re.search(r'Best Share:\s*([\d.]+)', html)
-        if share_match:
-            stats["best_share"] = float(share_match.group(1))
-
-        # Extract workers
-        workers_match = re.search(r'Workers:\s*(\d+)', html)
-        if workers_match:
-            stats["workers"] = int(workers_match.group(1))
-
-        return stats
