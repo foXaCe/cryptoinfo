@@ -123,13 +123,19 @@ class CKPoolAPI:
                 if 'application/json' in content_type:
                     # Global pool: direct JSON API
                     data = await response.json()
-                    return self._parse_ckpool_data(data)
+                    _LOGGER.debug(f"Got JSON data from {self.pool_url}: {data}")
+                    result = self._parse_ckpool_data(data)
+                    _LOGGER.debug(f"Parsed result: {result}")
+                    return result
                 elif 'text/html' in content_type:
                     # EU pool: Next.js app with embedded JSON
                     html = await response.text()
+                    _LOGGER.debug(f"Got HTML response from {self.pool_url}, length: {len(html)}")
                     data = self._extract_json_from_html(html)
                     if data:
-                        return self._parse_ckpool_data(data)
+                        result = self._parse_ckpool_data(data)
+                        _LOGGER.debug(f"Parsed result from HTML: {result}")
+                        return result
                     else:
                         _LOGGER.error(f"Failed to extract JSON from HTML for {btc_address}")
                         return None
@@ -155,8 +161,10 @@ class CKPoolAPI:
             try:
                 json_str = match.group(0)
                 data = json.loads(json_str)
+                _LOGGER.debug(f"Extracted JSON from HTML: {data}")
                 return data
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                _LOGGER.debug(f"JSON decode error: {e}, json_str: {json_str[:200]}")
                 pass
 
         # Fallback: extract individual fields
@@ -168,16 +176,20 @@ class CKPoolAPI:
             bestshare = re.search(r'"bestshare":\s*"?(\d+\.?\d*)"?', html)
 
             if hashrate1m:
-                return {
+                data = {
                     "hashrate1m": int(hashrate1m.group(1)) if hashrate1m else 0,
                     "hashrate1hr": int(hashrate1hr.group(1)) if hashrate1hr else 0,
                     "hashrate1d": int(hashrate1d.group(1)) if hashrate1d else 0,
                     "workers": int(workers.group(1)) if workers else 0,
                     "bestshare": float(bestshare.group(1)) if bestshare else 0,
                 }
-        except (ValueError, AttributeError):
+                _LOGGER.debug(f"Extracted fields from HTML: {data}")
+                return data
+        except (ValueError, AttributeError) as e:
+            _LOGGER.debug(f"Field extraction error: {e}")
             pass
 
+        _LOGGER.warning("Failed to extract any mining data from HTML")
         return None
 
     def _parse_ckpool_data(self, data: dict) -> dict:
