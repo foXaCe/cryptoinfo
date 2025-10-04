@@ -198,11 +198,14 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Preserve or update BTC address for CKPool
             if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+                from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_EU
+
                 btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip() or entry.data.get(CONF_BTC_ADDRESS, "")
                 if not btc_address:
                     errors["base"] = "btc_address_required"
                 else:
                     final_config[CONF_BTC_ADDRESS] = btc_address
+                    final_config[CONF_CKPOOL_REGION] = user_input.get(CONF_CKPOOL_REGION, entry.data.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU))
 
             if not errors:
                 # Update entry data
@@ -218,10 +221,16 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build schema
         if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+            from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_GLOBAL, CKPOOL_REGION_EU
+
             schema = vol.Schema(
                 {
                     vol.Optional(CONF_ID, default=entry.data.get(CONF_ID, "")): str,
                     vol.Required(CONF_BTC_ADDRESS, default=entry.data.get(CONF_BTC_ADDRESS, "")): str,
+                    vol.Required(CONF_CKPOOL_REGION, default=entry.data.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)): vol.In({
+                        CKPOOL_REGION_EU: "🇪🇺 EU Pool (eusolostats.ckpool.org)",
+                        CKPOOL_REGION_GLOBAL: "🌍 Global Pool (solo.ckpool.org)",
+                    }),
                     vol.Required(CONF_UPDATE_FREQUENCY, default=entry.data.get(CONF_UPDATE_FREQUENCY, 5)): cv.positive_float,
                 }
             )
@@ -779,11 +788,14 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Add BTC address if CKPool sensor
             if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+                from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_EU
+
                 btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip()
                 if not btc_address:
                     errors["base"] = "btc_address_required"
                 else:
                     final_config[CONF_BTC_ADDRESS] = btc_address
+                    final_config[CONF_CKPOOL_REGION] = user_input.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
 
             if not errors:
                 try:
@@ -808,14 +820,20 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build schema based on sensor type
         if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+            from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_GLOBAL, CKPOOL_REGION_EU
+
             mining_schema = vol.Schema(
                 {
                     vol.Optional(CONF_ID, description={"suggested_value": "My Mining"}): str,
                     vol.Required(CONF_BTC_ADDRESS): str,
+                    vol.Required(CONF_CKPOOL_REGION, default=CKPOOL_REGION_EU): vol.In({
+                        CKPOOL_REGION_EU: "🇪🇺 EU Pool (eusolostats.ckpool.org)",
+                        CKPOOL_REGION_GLOBAL: "🌍 Global Pool (solo.ckpool.org)",
+                    }),
                     vol.Required(CONF_UPDATE_FREQUENCY, default=5): cv.positive_float,
                 }
             )
-            description = "Configure CKPool solo mining sensor. Enter your Bitcoin address used for mining."
+            description = "Configure CKPool solo mining sensor. Enter your Bitcoin address and select your pool region."
         else:
             mining_schema = vol.Schema(
                 {

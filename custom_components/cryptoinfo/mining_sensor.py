@@ -49,11 +49,14 @@ async def async_setup_mining_sensors(
         async_add_entities([BTCMempoolSensor(coordinator, id_name)])
 
     elif sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+        from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_EU
+
         btc_address = config.get(CONF_BTC_ADDRESS, "").strip()
         if not btc_address:
             _LOGGER.error("BTC address is required for CKPool mining sensor")
             return False
-        coordinator = CKPoolCoordinator(hass, btc_address, update_frequency)
+        pool_region = config.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
+        coordinator = CKPoolCoordinator(hass, btc_address, pool_region, update_frequency)
         await coordinator.async_config_entry_first_refresh()
         async_add_entities([CKPoolMiningSensor(coordinator, id_name, btc_address)])
 
@@ -97,14 +100,14 @@ class BTCMempoolCoordinator(DataUpdateCoordinator):
 class CKPoolCoordinator(DataUpdateCoordinator):
     """Coordinator to fetch CKPool mining statistics."""
 
-    def __init__(self, hass: HomeAssistant, btc_address: str, update_interval: timedelta):
+    def __init__(self, hass: HomeAssistant, btc_address: str, pool_region: str, update_interval: timedelta):
         super().__init__(
             hass,
             _LOGGER,
             name=f"CKPool Stats {btc_address[:8]}...",
             update_interval=update_interval,
         )
-        self.api = CKPoolAPI(hass)
+        self.api = CKPoolAPI(hass, pool_region)
         self.btc_address = btc_address
 
     async def _async_update_data(self):

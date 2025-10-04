@@ -91,15 +91,16 @@ class BlockchainAPI:
 class CKPoolAPI:
     """Helper class to interact with CKPool solo mining API."""
 
-    def __init__(self, hass):
+    def __init__(self, hass, pool_url: str = "solo.ckpool.org"):
         """Initialize the API helper."""
         self.hass = hass
+        self.pool_url = pool_url
 
     async def get_user_stats(self, btc_address: str) -> dict | None:
         """Fetch user mining statistics from CKPool."""
         try:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            url = f"https://solo.ckpool.org/users/{btc_address}"
+            url = f"https://{self.pool_url}/users/{btc_address}"
 
             async with session.get(url) as response:
                 # 404 means address has no mining history - return empty stats
@@ -126,32 +127,39 @@ class CKPoolAPI:
     def _parse_ckpool_data(self, data: dict) -> dict:
         """Parse CKPool JSON data to extract mining statistics."""
 
-        # Convert hashrate string (e.g., "3.12T") to GH/s
-        def convert_hashrate(hashrate_str: str) -> float:
-            """Convert hashrate string to GH/s."""
-            if not hashrate_str or hashrate_str == "0":
+        # Convert hashrate to GH/s (handles both string format and nanoseconds)
+        def convert_hashrate(hashrate_value) -> float:
+            """Convert hashrate to GH/s."""
+            if not hashrate_value or hashrate_value == "0" or hashrate_value == 0:
                 return 0.0
 
             try:
-                # Check if last char is a unit letter
-                if hashrate_str[-1].isalpha():
-                    value = float(hashrate_str[:-1])
-                    unit = hashrate_str[-1]
-                else:
-                    # No unit, assume it's already in GH/s
-                    value = float(hashrate_str)
-                    unit = "G"
+                # EU pool format: integer nanoseconds (e.g., 1060000000000)
+                if isinstance(hashrate_value, (int, float)) and hashrate_value > 1000:
+                    # Convert from H/s to GH/s
+                    return round(hashrate_value / 1e9, 2)
 
-                # Convert to GH/s
-                multipliers = {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3, "P": 1e6}
-                return value * multipliers.get(unit, 1)
-            except (ValueError, IndexError):
+                # Global pool format: string with unit (e.g., "3.12T")
+                if isinstance(hashrate_value, str):
+                    # Check if last char is a unit letter
+                    if hashrate_value[-1].isalpha():
+                        value = float(hashrate_value[:-1])
+                        unit = hashrate_value[-1]
+                        # Convert to GH/s
+                        multipliers = {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3, "P": 1e6}
+                        return round(value * multipliers.get(unit, 1), 2)
+                    else:
+                        # Plain number as string
+                        return round(float(hashrate_value), 2)
+
+                return 0.0
+            except (ValueError, IndexError, TypeError):
                 return 0.0
 
         return {
-            "hashrate": convert_hashrate(data.get("hashrate1m", "0")),
-            "hashrate_1h": convert_hashrate(data.get("hashrate1hr", "0")),
-            "hashrate_24h": convert_hashrate(data.get("hashrate1d", "0")),
+            "hashrate": convert_hashrate(data.get("hashrate1m", 0)),
+            "hashrate_1h": convert_hashrate(data.get("hashrate1hr", 0)),
+            "hashrate_24h": convert_hashrate(data.get("hashrate1d", 0)),
             "best_share": float(data.get("bestshare", 0)),
             "workers": int(data.get("workers", 0)),
             "blocks_found": 0,  # Not available in JSON
