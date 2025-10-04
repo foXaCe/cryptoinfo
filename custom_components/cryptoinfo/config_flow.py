@@ -77,7 +77,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return errors
 
     async def async_step_reconfigure(self, user_input: Mapping[str, Any] | None = None):
-        """Handle reconfiguration flow - Detect sensor type and route."""
+        """Handle reconfiguration flow - Unified menu."""
         from .const.const import (
             CONF_SENSOR_TYPE,
             SENSOR_TYPE_PRICE,
@@ -92,15 +92,51 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Store entry data for later use
         self._config_data["entry"] = entry
 
-        # Detect sensor type and route to appropriate reconfigure flow
-        sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+        if user_input is not None:
+            action = user_input.get("action")
 
-        if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
-            # Mining sensor reconfiguration
-            return await self.async_step_reconfigure_mining(user_input)
-        else:
-            # Price sensor reconfiguration (existing flow)
-            return await self.async_step_reconfigure_price(user_input)
+            if action == "modify":
+                # Modify this sensor
+                sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+                if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
+                    return await self.async_step_reconfigure_mining()
+                else:
+                    return await self.async_step_reconfigure_price()
+            elif action == "add_price":
+                # Add price sensor
+                self._config_data[CONF_SENSOR_TYPE] = SENSOR_TYPE_PRICE
+                return await self.async_step_price_search()
+            elif action == "add_mining":
+                # Add mining sensor
+                return await self.async_step_select_mining_type()
+
+        # Show unified menu
+        sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+        sensor_names = {
+            SENSOR_TYPE_PRICE: "Price Tracker",
+            SENSOR_TYPE_BTC_NETWORK: "Bitcoin Network",
+            SENSOR_TYPE_BTC_MEMPOOL: "Bitcoin Mempool",
+            SENSOR_TYPE_CKPOOL_MINING: "CKPool Mining",
+        }
+        current_sensor = sensor_names.get(sensor_type, "Unknown")
+
+        menu_schema = vol.Schema(
+            {
+                vol.Required("action"): vol.In({
+                    "modify": f"🔧 Modify this sensor ({current_sensor})",
+                    "add_price": "💰 Add cryptocurrency price sensor",
+                    "add_mining": "⛏️ Add mining sensor (Network/Mempool/CKPool)",
+                }),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=menu_schema,
+            description_placeholders={
+                "info": "Choose an action: modify current sensor or add a new one."
+            },
+        )
 
     async def async_step_reconfigure_price(self, user_input: Mapping[str, Any] | None = None):
         """Handle price sensor reconfiguration - Step 1: Search or browse."""
@@ -307,7 +343,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             else:
                 # Build final config - preserve optional fields from existing entry if not provided
+                from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
                 final_config = {
+                    CONF_SENSOR_TYPE: entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE),  # Preserve sensor type
                     CONF_ID: user_input.get(CONF_ID) or entry.data.get(CONF_ID, ""),
                     CONF_CRYPTOCURRENCY_IDS: ", ".join(self._selected_cryptos),
                     CONF_MULTIPLIERS: ", ".join(multipliers_list),
@@ -612,7 +650,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             else:
                 # Build final config
+                from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
                 final_config = {
+                    CONF_SENSOR_TYPE: SENSOR_TYPE_PRICE,  # Ensure price sensor type is set
                     CONF_ID: user_input.get(CONF_ID, ""),
                     CONF_CRYPTOCURRENCY_IDS: ", ".join(self._selected_cryptos),
                     CONF_MULTIPLIERS: ", ".join(multipliers_list),
@@ -684,6 +724,38 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
+    async def async_step_select_mining_type(self, user_input: dict[str, Any] | None = None):
+        """Select which type of mining sensor to add."""
+        from .const.const import (
+            CONF_SENSOR_TYPE,
+            SENSOR_TYPE_BTC_NETWORK,
+            SENSOR_TYPE_BTC_MEMPOOL,
+            SENSOR_TYPE_CKPOOL_MINING,
+        )
+
+        if user_input is not None:
+            sensor_type = user_input.get(CONF_SENSOR_TYPE)
+            self._config_data[CONF_SENSOR_TYPE] = sensor_type
+            return await self.async_step_mining_config()
+
+        mining_type_schema = vol.Schema(
+            {
+                vol.Required(CONF_SENSOR_TYPE): vol.In({
+                    SENSOR_TYPE_BTC_NETWORK: "⛓️ Bitcoin Network Stats",
+                    SENSOR_TYPE_BTC_MEMPOOL: "📦 Bitcoin Mempool Stats",
+                    SENSOR_TYPE_CKPOOL_MINING: "⛏️ CKPool Solo Mining",
+                }),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="select_mining_type",
+            data_schema=mining_type_schema,
+            description_placeholders={
+                "info": "Choose the type of mining sensor to add."
+            },
+        )
+
     async def async_step_mining_config(self, user_input: dict[str, Any] | None = None):
         """Handle mining sensor configuration."""
         from .const.const import (
@@ -695,6 +767,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         errors = {}
+        # Get sensor type from config_data (for new sensors) or from validation context
         sensor_type = self._config_data.get(CONF_SENSOR_TYPE)
 
         if user_input is not None:
