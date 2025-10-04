@@ -116,13 +116,69 @@ class CKPoolAPI:
                     }
 
                 response.raise_for_status()
-                data = await response.json()
 
-                # CKPool returns JSON with hashrate data
-                return self._parse_ckpool_data(data)
+                # Check content type
+                content_type = response.headers.get('Content-Type', '')
+
+                if 'application/json' in content_type:
+                    # Global pool: direct JSON API
+                    data = await response.json()
+                    return self._parse_ckpool_data(data)
+                elif 'text/html' in content_type:
+                    # EU pool: Next.js app with embedded JSON
+                    html = await response.text()
+                    data = self._extract_json_from_html(html)
+                    if data:
+                        return self._parse_ckpool_data(data)
+                    else:
+                        _LOGGER.error(f"Failed to extract JSON from HTML for {btc_address}")
+                        return None
+                else:
+                    _LOGGER.error(f"Unexpected content type: {content_type}")
+                    return None
+
         except Exception as err:
             _LOGGER.error(f"Error fetching CKPool user stats for {btc_address}: {err}")
             return None
+
+    def _extract_json_from_html(self, html: str) -> dict | None:
+        """Extract JSON data from Next.js HTML page."""
+        import re
+        import json
+
+        # EU pool embeds JSON in the HTML within script tags
+        # Look for hashrate data in the embedded JSON
+        pattern = r'"hashrate1m[^}]+bestshare[^}]+"'
+        match = re.search(r'\{[^{}]*"hashrate1m"[^{}]+\}', html)
+
+        if match:
+            try:
+                json_str = match.group(0)
+                data = json.loads(json_str)
+                return data
+            except json.JSONDecodeError:
+                pass
+
+        # Fallback: extract individual fields
+        try:
+            hashrate1m = re.search(r'"hashrate1m":\s*"?(\d+)"?', html)
+            hashrate1hr = re.search(r'"hashrate1hr":\s*"?(\d+)"?', html)
+            hashrate1d = re.search(r'"hashrate1d":\s*"?(\d+)"?', html)
+            workers = re.search(r'"workers":\s*"?(\d+)"?', html)
+            bestshare = re.search(r'"bestshare":\s*"?(\d+\.?\d*)"?', html)
+
+            if hashrate1m:
+                return {
+                    "hashrate1m": int(hashrate1m.group(1)) if hashrate1m else 0,
+                    "hashrate1hr": int(hashrate1hr.group(1)) if hashrate1hr else 0,
+                    "hashrate1d": int(hashrate1d.group(1)) if hashrate1d else 0,
+                    "workers": int(workers.group(1)) if workers else 0,
+                    "bestshare": float(bestshare.group(1)) if bestshare else 0,
+                }
+        except (ValueError, AttributeError):
+            pass
+
+        return None
 
     def _parse_ckpool_data(self, data: dict) -> dict:
         """Parse CKPool JSON data to extract mining statistics."""
