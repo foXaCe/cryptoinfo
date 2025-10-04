@@ -66,3 +66,39 @@ class CoinGeckoAPI:
         ]
 
         return matches[:limit]
+
+    async def get_top_cryptocurrencies(self, limit: int = 10) -> list[dict]:
+        """Fetch top cryptocurrencies by market cap from CoinGecko.
+
+        Returns a list of top coins sorted by market cap rank.
+        """
+        try:
+            session = aiohttp_client.async_get_clientsession(self.hass)
+            url = f"{API_ENDPOINT}coins/markets?vs_currency=usd&order=market_cap_desc&per_page={limit}&page=1&sparkline=false"
+            async with session.get(url) as response:
+                response.raise_for_status()
+                data = await response.json()
+                # Return simplified format matching coin_list
+                return [
+                    {
+                        "id": coin["id"],
+                        "name": coin["name"],
+                        "symbol": coin["symbol"]
+                    }
+                    for coin in data
+                ]
+        except Exception as err:
+            _LOGGER.error(f"Error fetching top cryptocurrencies from CoinGecko: {err}")
+            # Fallback to hardcoded top 10
+            return [
+                {"id": "bitcoin", "name": "Bitcoin", "symbol": "btc"},
+                {"id": "ethereum", "name": "Ethereum", "symbol": "eth"},
+                {"id": "tether", "name": "Tether", "symbol": "usdt"},
+                {"id": "binancecoin", "name": "BNB", "symbol": "bnb"},
+                {"id": "solana", "name": "Solana", "symbol": "sol"},
+                {"id": "ripple", "name": "XRP", "symbol": "xrp"},
+                {"id": "usd-coin", "name": "USDC", "symbol": "usdc"},
+                {"id": "cardano", "name": "Cardano", "symbol": "ada"},
+                {"id": "dogecoin", "name": "Dogecoin", "symbol": "doge"},
+                {"id": "tron", "name": "TRON", "symbol": "trx"},
+            ]

@@ -115,7 +115,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=search_schema,
             errors={},
             description_placeholders={
-                "info": "Search for cryptocurrencies to add or modify. Leave empty to see top 100 cryptocurrencies."
+                "info": "Search for cryptocurrencies to add or modify. Leave empty to see top 10 by market cap."
             },
         )
 
@@ -132,10 +132,14 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._selected_cryptos = selected
                 return await self.async_step_reconfigure_configure()
 
+        # Get existing cryptocurrencies
+        existing_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+
         # Filter coin list based on search query
         search_query = self._config_data.get("search_query", "").lower()
 
         if search_query:
+            # Search mode: show search results
             filtered_coins = [
                 coin for coin in self._coin_list
                 if search_query in coin["id"].lower()
@@ -143,7 +147,19 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 or search_query in coin["symbol"].lower()
             ][:100]
         else:
-            filtered_coins = self._coin_list[:100]
+            # Default mode: show top 10 by market cap + existing cryptos
+            api = CoinGeckoAPI(self.hass)
+            top_coins = await api.get_top_cryptocurrencies(limit=10)
+
+            # Merge top 10 with existing cryptos (avoid duplicates)
+            seen = {coin["id"] for coin in top_coins}
+            filtered_coins = top_coins.copy()
+
+            # Add existing cryptos that aren't in top 10
+            for coin in self._coin_list:
+                if coin["id"] in existing_ids and coin["id"] not in seen:
+                    filtered_coins.append(coin)
+                    seen.add(coin["id"])
 
         # Create options for selector
         crypto_options = {
@@ -155,8 +171,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "no_results"
             return await self.async_step_reconfigure()
 
-        # Pre-select existing cryptocurrencies
-        existing_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+        # Pre-select ONLY existing cryptocurrencies
         default_selected = [id for id in existing_ids if id in crypto_options]
 
         select_schema = vol.Schema(
@@ -172,6 +187,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reconfigure_select",
             data_schema=select_schema,
             errors=errors,
+            description_placeholders={
+                "info": "Top 10 by market cap shown by default. Use search to find others." if not search_query else f"Search results for '{search_query}'"
+            },
         )
 
     async def async_step_reconfigure_configure(self, user_input: dict[str, Any] | None = None):
@@ -382,7 +400,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=search_schema,
             errors=errors,
             description_placeholders={
-                "info": "Search for cryptocurrencies by name, symbol, or ID. Leave empty to see top 100 cryptocurrencies."
+                "info": "Search for cryptocurrencies by name, symbol, or ID. Leave empty to see top 10 by market cap."
             },
         )
 
@@ -402,7 +420,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         search_query = self._config_data.get("search_query", "").lower()
 
         if search_query:
-            # Search in name, symbol, or id
+            # Search mode: show search results
             filtered_coins = [
                 coin for coin in self._coin_list
                 if search_query in coin["id"].lower()
@@ -410,8 +428,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 or search_query in coin["symbol"].lower()
             ][:100]  # Limit to 100 results
         else:
-            # Show top 100 by default (CoinGecko list is usually sorted by rank)
-            filtered_coins = self._coin_list[:100]
+            # Default mode: show top 10 by market cap
+            api = CoinGeckoAPI(self.hass)
+            filtered_coins = await api.get_top_cryptocurrencies(limit=10)
 
         # Create options for selector
         crypto_options = {
@@ -433,6 +452,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="select_crypto",
             data_schema=select_schema,
             errors=errors,
+            description_placeholders={
+                "info": "Top 10 by market cap shown by default. Use search to find others." if not search_query else f"Search results for '{search_query}'"
+            },
         )
 
     async def async_step_configure(self, user_input: dict[str, Any] | None = None):

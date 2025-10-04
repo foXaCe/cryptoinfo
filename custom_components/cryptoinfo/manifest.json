@@ -1,7 +1,7 @@
 {
   "domain": "cryptoinfo",
   "name": "Cryptoinfo",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "config_flow": true,
   "iot_class": "cloud_polling",
   "documentation": "https://github.com/heyajohnny/cryptoinfo",
