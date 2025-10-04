@@ -77,12 +77,34 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return errors
 
     async def async_step_reconfigure(self, user_input: Mapping[str, Any] | None = None):
-        """Handle reconfiguration flow - Step 1: Search or browse."""
+        """Handle reconfiguration flow - Detect sensor type and route."""
+        from .const.const import (
+            CONF_SENSOR_TYPE,
+            SENSOR_TYPE_PRICE,
+            SENSOR_TYPE_BTC_NETWORK,
+            SENSOR_TYPE_BTC_MEMPOOL,
+            SENSOR_TYPE_CKPOOL_MINING,
+        )
+
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         assert entry
 
         # Store entry data for later use
         self._config_data["entry"] = entry
+
+        # Detect sensor type and route to appropriate reconfigure flow
+        sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+
+        if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
+            # Mining sensor reconfiguration
+            return await self.async_step_reconfigure_mining(user_input)
+        else:
+            # Price sensor reconfiguration (existing flow)
+            return await self.async_step_reconfigure_price(user_input)
+
+    async def async_step_reconfigure_price(self, user_input: Mapping[str, Any] | None = None):
+        """Handle price sensor reconfiguration - Step 1: Search or browse."""
+        entry = self._config_data["entry"]
 
         # Initialize data if needed
         if DOMAIN not in self.hass.data:
@@ -111,12 +133,77 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="reconfigure",
+            step_id="reconfigure_price",
             data_schema=search_schema,
             errors={},
             description_placeholders={
                 "info": "Search for cryptocurrencies to add or modify. Leave empty to see top 10 by market cap."
             },
+        )
+
+    async def async_step_reconfigure_mining(self, user_input: Mapping[str, Any] | None = None):
+        """Handle mining sensor reconfiguration."""
+        from .const.const import (
+            CONF_BTC_ADDRESS,
+            CONF_SENSOR_TYPE,
+            SENSOR_TYPE_CKPOOL_MINING,
+        )
+
+        entry = self._config_data["entry"]
+        sensor_type = entry.data.get(CONF_SENSOR_TYPE)
+        errors = {}
+
+        if user_input is not None:
+            final_config = {
+                CONF_SENSOR_TYPE: sensor_type,
+                CONF_ID: user_input.get(CONF_ID) or entry.data.get(CONF_ID, ""),
+                CONF_UPDATE_FREQUENCY: user_input.get(CONF_UPDATE_FREQUENCY, entry.data.get(CONF_UPDATE_FREQUENCY, 5)),
+            }
+
+            # Preserve or update BTC address for CKPool
+            if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+                btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip() or entry.data.get(CONF_BTC_ADDRESS, "")
+                if not btc_address:
+                    errors["base"] = "btc_address_required"
+                else:
+                    final_config[CONF_BTC_ADDRESS] = btc_address
+
+            if not errors:
+                # Update entry data
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    data=final_config,
+                )
+
+                # Reload the entry
+                await self.hass.config_entries.async_reload(entry.entry_id)
+
+                return self.async_abort(reason="reconfigure_successful")
+
+        # Build schema
+        if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
+            schema = vol.Schema(
+                {
+                    vol.Optional(CONF_ID, default=entry.data.get(CONF_ID, "")): str,
+                    vol.Required(CONF_BTC_ADDRESS, default=entry.data.get(CONF_BTC_ADDRESS, "")): str,
+                    vol.Required(CONF_UPDATE_FREQUENCY, default=entry.data.get(CONF_UPDATE_FREQUENCY, 5)): cv.positive_float,
+                }
+            )
+            description = "Update CKPool mining sensor configuration."
+        else:
+            schema = vol.Schema(
+                {
+                    vol.Optional(CONF_ID, default=entry.data.get(CONF_ID, "")): str,
+                    vol.Required(CONF_UPDATE_FREQUENCY, default=entry.data.get(CONF_UPDATE_FREQUENCY, 5)): cv.positive_float,
+                }
+            )
+            description = f"Update {sensor_type.replace('_', ' ').title()} sensor configuration."
+
+        return self.async_show_form(
+            step_id="reconfigure_mining",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"info": description},
         )
 
     async def async_step_reconfigure_select(self, user_input: dict[str, Any] | None = None):
@@ -179,7 +266,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not crypto_options:
             errors["base"] = "no_results"
-            return await self.async_step_reconfigure()
+            return await self.async_step_reconfigure_price()
 
         # Pre-select ONLY existing cryptocurrencies
         default_selected = [id for id in existing_ids if id in crypto_options]
