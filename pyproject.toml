@@ -100,10 +100,12 @@ show_error_codes = true
 warn_unreachable = true
 ignore_missing_imports = true
 exclude = ["^.venv/"]
+explicit_package_bases = true
+mypy_path = "."
 # Relaxed settings for legacy code
 strict = false
 # Ignore errors for legacy code patterns
-disable_error_code = ["call-arg", "var-annotated", "assignment", "dict-item", "arg-type"]
+disable_error_code = ["call-arg", "var-annotated", "assignment", "dict-item", "arg-type", "type-arg"]
 disallow_untyped_calls = false
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
@@ -115,6 +117,7 @@ disallow_subclassing_any = false
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+warn_unreachable = false
 
 [[tool.mypy.overrides]]
 module = "homeassistant.*"

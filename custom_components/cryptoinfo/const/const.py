@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 DOMAIN = "cryptoinfo"
 
 # Type alias for typed ConfigEntry (Platinum pattern)
-type CryptoInfoConfigEntry = ConfigEntry[CryptoInfoRuntimeData]
+CryptoInfoConfigEntry: TypeAlias = "ConfigEntry[CryptoInfoRuntimeData]"  # noqa: UP040
 
 
 @dataclass(slots=True)

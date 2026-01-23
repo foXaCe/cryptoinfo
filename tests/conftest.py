@@ -10,7 +10,7 @@ import pytest
 from custom_components.cryptoinfo.const.const import DOMAIN
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_setup_entry() -> Generator[AsyncMock, None, None]:
     """Override async_setup_entry."""
     with patch(
@@ -20,7 +20,7 @@ def mock_setup_entry() -> Generator[AsyncMock, None, None]:
         yield mock_setup_entry
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_coingecko_api() -> Generator[AsyncMock, None, None]:
     """Mock CoinGecko API responses."""
     with patch(f"custom_components.{DOMAIN}.helper.coingecko_api.CoinGeckoAPI") as mock_api:
@@ -50,7 +50,7 @@ def mock_coingecko_api() -> Generator[AsyncMock, None, None]:
         yield mock_instance
 
 
-@pytest.fixture
+@pytest.fixture()
 async def hass_setup(hass: HomeAssistant) -> HomeAssistant:
     """Set up Home Assistant for testing."""
     await async_setup_component(hass, "homeassistant", {})
