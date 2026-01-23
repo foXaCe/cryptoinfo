@@ -1,15 +1,14 @@
 {
   "domain": "cryptoinfo",
   "name": "Cryptoinfo",
-  "version": "1.6.0",
+  "codeowners": ["@heyajohnny"],
   "config_flow": true,
-  "iot_class": "cloud_polling",
-  "documentation": "https://github.com/heyajohnny/cryptoinfo",
-  "issue_tracker": "https://github.com/heyajohnny/cryptoinfo/issues",
   "dependencies": [],
-  "codeowners": [
-    "@heyajohnny"
-  ],
+  "documentation": "https://github.com/heyajohnny/cryptoinfo",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/heyajohnny/cryptoinfo/issues",
+  "loggers": ["custom_components.cryptoinfo"],
   "requirements": [],
-  "integration_type": "service"
+  "version": "1.6.0"
 }

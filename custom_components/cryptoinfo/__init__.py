@@ -5,10 +5,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const.const import CryptoInfoRuntimeData
+from .exceptions import CryptoInfoConnectionError
 from .helper.crypto_info_data import CryptoInfoData
 
 if TYPE_CHECKING:
@@ -16,14 +19,57 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# ConfigEntry version - increment when data schema changes
+CONFIG_ENTRY_VERSION = 1
+CONFIG_ENTRY_MINOR_VERSION = 0
+
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry to new version.
+
+    This function handles ConfigEntry migrations when the data schema changes.
+    Migrations must be idempotent (safe to run multiple times).
+
+    Version history:
+    - 1.0: Initial version (current)
+    """
+    _LOGGER.debug(
+        "Migrating Cryptoinfo config entry from version %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    # Example migration pattern for future use:
+    # if config_entry.version == 1:
+    #     new_data = {**config_entry.data}
+    #     # Apply migration
+    #     new_data["new_key"] = new_data.pop("old_key", "default")
+    #     hass.config_entries.async_update_entry(
+    #         config_entry,
+    #         data=new_data,
+    #         version=2,
+    #         minor_version=0,
+    #     )
+
+    _LOGGER.info(
+        "Migration to version %s.%s successful",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CryptoInfoConfigEntry) -> bool:
     """Set up Cryptoinfo from a config entry."""
     # Initialize shared data (for global settings like min_time_between_requests)
     shared_data = CryptoInfoData(hass)
-    await shared_data.async_initialize()
+
+    try:
+        await shared_data.async_initialize()
+    except CryptoInfoConnectionError as err:
+        raise ConfigEntryNotReady(f"Failed to initialize: {err}") from err
 
     # Store runtime data on the entry (Platinum pattern)
     entry.runtime_data = CryptoInfoRuntimeData(

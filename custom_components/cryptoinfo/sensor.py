@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -131,9 +132,13 @@ async def async_setup_entry(
 class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     """Cryptocurrency price sensor."""
 
+    __slots__ = ("_id_name", "cryptocurrency_id", "currency_name", "multiplier")
+
     _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:bitcoin"
+    _attr_suggested_display_precision = 2
 
     def __init__(
         self,
@@ -164,12 +169,21 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
         self._attr_unique_id = f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
 
         # Device info (enables device grouping in HA)
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"cryptoinfo_{id_name or 'default'}")},
-            "name": f"Cryptoinfo {id_name or 'Wallet'}",
-            "manufacturer": "CoinGecko",
-            "model": "Cryptocurrency Tracker",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"cryptoinfo_{id_name or 'default'}")},
+            name=f"Cryptoinfo {id_name or 'Wallet'}",
+            manufacturer="CoinGecko",
+            model="Cryptocurrency Tracker",
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        if not self.coordinator.last_update_success:
+            return False
+        if not self.coordinator.data:
+            return False
+        return self.cryptocurrency_id in self.coordinator.data
 
     @property
     def native_value(self) -> float | None:

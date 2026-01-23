@@ -4,6 +4,8 @@
 Author: Johnny Visser
 """
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -27,9 +29,12 @@ from .helper.crypto_info_data import CryptoInfoData
 
 
 class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    """Handle a config flow for Cryptoinfo."""
 
-    def __init__(self):
+    VERSION = 1
+    MINOR_VERSION = 0
+
+    def __init__(self) -> None:
         """Initialize the config flow."""
         super().__init__()
         self._coin_list = []
@@ -385,7 +390,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 removed_cryptos = [id for id in old_crypto_ids if id not in self._selected_cryptos]
 
                 if removed_cryptos:
-                    _LOGGER.debug(f"Removing entities for removed cryptos: {removed_cryptos}")
+                    _LOGGER.debug("Removing entities for removed cryptos: %s", removed_cryptos)
                     for crypto_id in removed_cryptos:
                         # Build unique_id for this crypto
                         unique_id = f"{SENSOR_PREFIX}{final_config[CONF_ID]}_{crypto_id}_{final_config[CONF_CURRENCY_NAME]}".lower().replace(
@@ -395,7 +400,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         for entity_id, entity_entry in entity_reg.entities.items():
                             if entity_entry.unique_id == unique_id:
                                 entity_reg.async_remove(entity_id)
-                                _LOGGER.debug(f"Removed entity {entity_id} with unique_id {unique_id}")
+                                _LOGGER.debug("Removed entity %s with unique_id %s", entity_id, unique_id)
                                 break
 
                 # Reload the entry
@@ -679,7 +684,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data=final_config,
                     )
                 except Exception as ex:
-                    _LOGGER.error(f"Error creating entry: {ex}")
+                    _LOGGER.error("Error creating entry: %s", ex)
                     errors["base"] = f"Error creating entry: {ex}"
 
         # Generate default multipliers (1 for each selected crypto)
@@ -809,7 +814,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data=final_config,
                     )
                 except Exception as ex:
-                    _LOGGER.error(f"Error creating mining sensor: {ex}")
+                    _LOGGER.error("Error creating mining sensor: %s", ex)
                     errors["base"] = f"Error creating entry: {ex}"
 
         # Build schema based on sensor type
@@ -837,7 +842,8 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_UPDATE_FREQUENCY, default=5): cv.positive_float,
                 }
             )
-            description = f"Configure {sensor_type.replace('_', ' ').title()} sensor."
+            sensor_type_str = sensor_type or "mining"
+            description = f"Configure {sensor_type_str.replace('_', ' ').title()} sensor."
 
         return self.async_show_form(
             step_id="mining_config",
@@ -884,4 +890,60 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "info": "The CoinGecko API connection needs to be verified. Click submit to retry."
             },
+        )
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return CryptoInfoOptionsFlow()
+
+
+class CryptoInfoOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Cryptoinfo."""
+
+    VERSION = 1
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
+        """Manage the options."""
+        from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
+
+        errors: dict[str, str] = {}
+        entry = self.config_entry
+        sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
+
+        if user_input is not None:
+            # Update options
+            return self.async_create_entry(title="", data=user_input)
+
+        # Get current values
+        current_update_freq = entry.data.get(CONF_UPDATE_FREQUENCY, 5)
+
+        options_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_UPDATE_FREQUENCY,
+                    default=entry.options.get(CONF_UPDATE_FREQUENCY, current_update_freq),
+                ): cv.positive_float,
+            }
+        )
+
+        # Add min_time option only for price sensors
+        if sensor_type == SENSOR_TYPE_PRICE:
+            current_min_time = entry.data.get(CONF_MIN_TIME_BETWEEN_REQUESTS, 0.25)
+            options_schema = options_schema.extend(
+                {
+                    vol.Required(
+                        CONF_MIN_TIME_BETWEEN_REQUESTS,
+                        default=entry.options.get(CONF_MIN_TIME_BETWEEN_REQUESTS, current_min_time),
+                    ): cv.positive_float,
+                }
+            )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=options_schema,
+            errors=errors,
+            description_placeholders={"info": "Configure update intervals for this sensor."},
         )

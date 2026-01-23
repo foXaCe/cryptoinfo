@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -14,6 +15,9 @@ from .const.const import API_ENDPOINT, DOMAIN
 from .exceptions import CryptoInfoApiError
 
 _LOGGER = logging.getLogger(__name__)
+
+# Default timeout for API requests (seconds)
+DEFAULT_TIMEOUT = 30
 
 
 class CryptoDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -116,18 +120,22 @@ class CryptoDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         try:
             session = aiohttp_client.async_get_clientsession(self.hass)
-            async with session.get(url) as response:
-                if response.status == 429:
-                    raise CryptoInfoApiError("Rate limited by CoinGecko API")
-                response.raise_for_status()
-                data = await response.json()
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                async with session.get(url) as response:
+                    if response.status == 429:
+                        raise CryptoInfoApiError("Rate limited by CoinGecko API")
+                    response.raise_for_status()
+                    data = await response.json()
 
-                # Update timing after successful request
-                CryptoDataCoordinator._last_update_time = current_time
-                CryptoDataCoordinator._last_updated_id = self.instance_id
+                    # Update timing after successful request
+                    CryptoDataCoordinator._last_update_time = current_time
+                    CryptoDataCoordinator._last_updated_id = self.instance_id
 
-                return {coin["id"]: coin for coin in data}
+                    return {coin["id"]: coin for coin in data}
 
+        except TimeoutError as err:
+            _LOGGER.warning("Timeout fetching crypto data from CoinGecko")
+            raise UpdateFailed("Request timeout") from err
         except CryptoInfoApiError:
             raise
         except Exception as err:

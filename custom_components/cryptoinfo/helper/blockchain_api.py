@@ -1,47 +1,145 @@
-#!/usr/bin/env python3
-"""Blockchain API helper for Bitcoin network stats
+"""Blockchain API helper for Bitcoin network stats.
+
 Author: foXaCe
 """
 
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime, timedelta
+import re
+from typing import TYPE_CHECKING, Any, cast
+
+import aiohttp
 from homeassistant.helpers import aiohttp_client
 
 from ..const.const import _LOGGER
+from ..exceptions import (
+    CryptoInfoConnectionError,
+    CryptoInfoInvalidResponseError,
+)
+
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 MEMPOOL_SPACE_API = "https://mempool.space/api"
+DEFAULT_TIMEOUT = 30
+MAX_RETRIES = 3
+RETRY_DELAY = 1.0
+CIRCUIT_BREAKER_THRESHOLD = 5
+CIRCUIT_BREAKER_TIMEOUT = 300  # 5 minutes
+BITCOIN_HALVING_INTERVAL = 210_000  # blocks between halvings
 
 
 class BlockchainAPI:
     """Helper class to interact with Mempool.space API for Bitcoin stats."""
 
-    def __init__(self, hass):
+    __slots__ = ("_circuit_open_until", "_consecutive_failures", "hass")
+
+    def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the API helper."""
         self.hass = hass
+        self._consecutive_failures = 0
+        self._circuit_open_until: datetime | None = None
+
+    # =========================================================================
+    # CIRCUIT BREAKER
+    # =========================================================================
+
+    def _check_circuit_breaker(self) -> None:
+        """Check if circuit breaker is open."""
+        if self._circuit_open_until and datetime.now(UTC) < self._circuit_open_until:
+            raise CryptoInfoConnectionError(f"Circuit breaker open until {self._circuit_open_until}")
+
+    def _record_success(self) -> None:
+        """Record successful request."""
+        self._consecutive_failures = 0
+        self._circuit_open_until = None
+
+    def _record_failure(self) -> None:
+        """Record failed request and potentially open circuit."""
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            self._circuit_open_until = datetime.now(UTC) + timedelta(seconds=CIRCUIT_BREAKER_TIMEOUT)
+            _LOGGER.warning(
+                "Circuit breaker opened after %d failures",
+                self._consecutive_failures,
+            )
+
+    # =========================================================================
+    # REQUEST HANDLING WITH RETRY
+    # =========================================================================
+
+    async def _request(self, url: str, *, retry: bool = True, parse_json: bool = True) -> Any:
+        """Make API request with retry and circuit breaker."""
+        self._check_circuit_breaker()
+
+        last_exception: Exception | None = None
+        retries = MAX_RETRIES if retry else 1
+
+        for attempt in range(retries):
+            try:
+                session = aiohttp_client.async_get_clientsession(self.hass)
+
+                async with asyncio.timeout(DEFAULT_TIMEOUT):
+                    async with session.get(url) as response:
+                        if response.status >= 400:
+                            raise CryptoInfoConnectionError(f"HTTP error: {response.status}", response.status)
+
+                        self._record_success()
+
+                        if parse_json:
+                            return await response.json()
+                        return await response.text()
+
+            except aiohttp.ClientError as err:
+                last_exception = CryptoInfoConnectionError(f"Connection error: {err}")
+                _LOGGER.debug("Request failed (attempt %d/%d): %s", attempt + 1, retries, err)
+
+            except TimeoutError:
+                last_exception = CryptoInfoConnectionError("Request timeout")
+                _LOGGER.debug("Request timeout (attempt %d/%d)", attempt + 1, retries)
+
+            if attempt < retries - 1:
+                delay = RETRY_DELAY * (2**attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+
+        self._record_failure()
+        raise last_exception or CryptoInfoConnectionError("Request failed")
+
+    # =========================================================================
+    # API METHODS
+    # =========================================================================
 
     async def get_network_stats(self) -> dict | None:
-        """Fetch Bitcoin network statistics from mempool.space."""
+        """Fetch Bitcoin network statistics from mempool.space using parallel requests."""
         try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
+            # Parallel requests for better performance
+            mining_task = self._request(f"{MEMPOOL_SPACE_API}/v1/mining/hashrate/3d")
+            blocks_task = self._request(f"{MEMPOOL_SPACE_API}/blocks/tip/height", parse_json=False)
+            difficulty_task = self._request(f"{MEMPOOL_SPACE_API}/v1/difficulty-adjustment")
 
-            # Get mining stats (hashrate, difficulty)
-            mining_url = f"{MEMPOOL_SPACE_API}/v1/mining/hashrate/3d"
-            blocks_url = f"{MEMPOOL_SPACE_API}/blocks/tip/height"
-            difficulty_url = f"{MEMPOOL_SPACE_API}/v1/difficulty-adjustment"
+            results = await asyncio.gather(
+                mining_task,
+                blocks_task,
+                difficulty_task,
+                return_exceptions=True,
+            )
 
-            async with session.get(mining_url) as mining_response:
-                mining_response.raise_for_status()
-                mining_data = await mining_response.json()
+            # Check for exceptions
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    _LOGGER.error("Error in parallel request %d: %s", i, result)
+                    return None
 
-            async with session.get(blocks_url) as blocks_response:
-                blocks_response.raise_for_status()
-                block_height = await blocks_response.text()
+            # Type narrowing after exception check
+            mining_data = cast(dict[str, Any], results[0])
+            block_height_str = cast(str, results[1])
+            difficulty_data = cast(dict[str, Any], results[2])
 
-            async with session.get(difficulty_url) as diff_response:
-                diff_response.raise_for_status()
-                difficulty_data = await diff_response.json()
-
-            # Calculate halving info (every 210,000 blocks)
-            current_height = int(block_height)
-            next_halving = ((current_height // 210000) + 1) * 210000
+            # Calculate halving info
+            current_height = int(block_height_str)
+            next_halving = ((current_height // BITCOIN_HALVING_INTERVAL) + 1) * BITCOIN_HALVING_INTERVAL
             blocks_until_halving = next_halving - current_height
 
             return {
@@ -55,24 +153,31 @@ class BlockchainAPI:
                 "blocks_until_halving": blocks_until_halving,
             }
         except Exception as err:
-            _LOGGER.error(f"Error fetching Bitcoin network stats: {err}")
+            _LOGGER.error("Error fetching Bitcoin network stats: %s", err)
             return None
 
     async def get_mempool_stats(self) -> dict | None:
-        """Fetch Bitcoin mempool statistics from mempool.space."""
+        """Fetch Bitcoin mempool statistics from mempool.space using parallel requests."""
         try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
+            # Parallel requests for better performance
+            mempool_task = self._request(f"{MEMPOOL_SPACE_API}/mempool")
+            fees_task = self._request(f"{MEMPOOL_SPACE_API}/v1/fees/recommended")
 
-            mempool_url = f"{MEMPOOL_SPACE_API}/mempool"
-            fees_url = f"{MEMPOOL_SPACE_API}/v1/fees/recommended"
+            results = await asyncio.gather(
+                mempool_task,
+                fees_task,
+                return_exceptions=True,
+            )
 
-            async with session.get(mempool_url) as mempool_response:
-                mempool_response.raise_for_status()
-                mempool_data = await mempool_response.json()
+            # Check for exceptions
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    _LOGGER.error("Error in parallel request %d: %s", i, result)
+                    return None
 
-            async with session.get(fees_url) as fees_response:
-                fees_response.raise_for_status()
-                fees_data = await fees_response.json()
+            # Type narrowing after exception check
+            mempool_data = cast(dict[str, Any], results[0])
+            fees_data = cast(dict[str, Any], results[1])
 
             return {
                 "mempool_size": mempool_data.get("count", 0),
@@ -84,73 +189,123 @@ class BlockchainAPI:
                 "fee_minimum": fees_data.get("minimumFee", 0),
             }
         except Exception as err:
-            _LOGGER.error(f"Error fetching Bitcoin mempool stats: {err}")
+            _LOGGER.error("Error fetching Bitcoin mempool stats: %s", err)
             return None
 
 
 class CKPoolAPI:
     """Helper class to interact with CKPool solo mining API."""
 
-    def __init__(self, hass, pool_url: str = "solo.ckpool.org"):
+    __slots__ = ("_circuit_open_until", "_consecutive_failures", "hass", "pool_url")
+
+    def __init__(self, hass: HomeAssistant, pool_url: str = "solo.ckpool.org") -> None:
         """Initialize the API helper."""
         self.hass = hass
         self.pool_url = pool_url
+        self._consecutive_failures = 0
+        self._circuit_open_until: datetime | None = None
+
+    # =========================================================================
+    # CIRCUIT BREAKER
+    # =========================================================================
+
+    def _check_circuit_breaker(self) -> None:
+        """Check if circuit breaker is open."""
+        if self._circuit_open_until and datetime.now(UTC) < self._circuit_open_until:
+            raise CryptoInfoConnectionError(f"Circuit breaker open until {self._circuit_open_until}")
+
+    def _record_success(self) -> None:
+        """Record successful request."""
+        self._consecutive_failures = 0
+        self._circuit_open_until = None
+
+    def _record_failure(self) -> None:
+        """Record failed request and potentially open circuit."""
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+            self._circuit_open_until = datetime.now(UTC) + timedelta(seconds=CIRCUIT_BREAKER_TIMEOUT)
+            _LOGGER.warning(
+                "Circuit breaker opened after %d failures",
+                self._consecutive_failures,
+            )
 
     async def get_user_stats(self, btc_address: str) -> dict | None:
-        """Fetch user mining statistics from CKPool."""
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            url = f"https://{self.pool_url}/users/{btc_address}"
+        """Fetch user mining statistics from CKPool with retry."""
+        self._check_circuit_breaker()
 
-            async with session.get(url) as response:
-                # 404 means address has no mining history - return empty stats
-                if response.status == 404:
-                    _LOGGER.debug(f"No mining history found for {btc_address} on CKPool")
-                    return {
-                        "hashrate": 0,
-                        "hashrate_1h": 0,
-                        "hashrate_24h": 0,
-                        "best_share": 0,
-                        "workers": 0,
-                        "blocks_found": 0,
-                    }
+        last_exception: Exception | None = None
 
-                response.raise_for_status()
+        for attempt in range(MAX_RETRIES):
+            try:
+                session = aiohttp_client.async_get_clientsession(self.hass)
+                url = f"https://{self.pool_url}/users/{btc_address}"
 
-                # Check content type
-                content_type = response.headers.get("Content-Type", "")
+                async with asyncio.timeout(DEFAULT_TIMEOUT):
+                    async with session.get(url) as response:
+                        # 404 means address has no mining history - return empty stats
+                        if response.status == 404:
+                            _LOGGER.debug("No mining history found for %s on CKPool", btc_address)
+                            self._record_success()
+                            return {
+                                "hashrate": 0,
+                                "hashrate_1h": 0,
+                                "hashrate_24h": 0,
+                                "best_share": 0,
+                                "best_ever": 0,
+                                "workers": 0,
+                                "blocks_found": 0,
+                            }
 
-                if "application/json" in content_type:
-                    # Global pool: direct JSON API
-                    data = await response.json()
-                    _LOGGER.debug(f"Got JSON data from {self.pool_url}: {data}")
-                    result = self._parse_ckpool_data(data)
-                    _LOGGER.debug(f"Parsed result: {result}")
-                    return result
-                if "text/html" in content_type:
-                    # EU pool: Next.js app with embedded JSON
-                    html = await response.text()
-                    _LOGGER.debug(f"Got HTML response from {self.pool_url}, length: {len(html)}")
-                    data = self._extract_json_from_html(html)
-                    if data:
-                        result = self._parse_ckpool_data(data)
-                        _LOGGER.debug(f"Parsed result from HTML: {result}")
-                        return result
-                    _LOGGER.error(f"Failed to extract JSON from HTML for {btc_address}")
-                    return None
-                _LOGGER.error(f"Unexpected content type: {content_type}")
+                        if response.status >= 400:
+                            raise CryptoInfoConnectionError(f"HTTP error: {response.status}", response.status)
+
+                        # Check content type
+                        content_type = response.headers.get("Content-Type", "")
+
+                        if "application/json" in content_type:
+                            # Global pool: direct JSON API
+                            data = await response.json()
+                            _LOGGER.debug("Got JSON data from %s: %s", self.pool_url, data)
+                            self._record_success()
+                            return self._parse_ckpool_data(data)
+
+                        if "text/html" in content_type:
+                            # EU pool: Next.js app with embedded JSON
+                            html = await response.text()
+                            _LOGGER.debug("Got HTML response from %s, length: %d", self.pool_url, len(html))
+                            data = self._extract_json_from_html(html)
+                            if data:
+                                self._record_success()
+                                return self._parse_ckpool_data(data)
+                            raise CryptoInfoInvalidResponseError(f"Failed to extract JSON from HTML for {btc_address}")
+
+                        raise CryptoInfoInvalidResponseError(f"Unexpected content type: {content_type}")
+
+            except CryptoInfoInvalidResponseError as err:
+                # Invalid response: record failure and don't retry
+                _LOGGER.debug("Invalid response: %s", err)
+                self._record_failure()
                 return None
 
-        except Exception as err:
-            _LOGGER.error(f"Error fetching CKPool user stats for {btc_address}: {err}")
-            return None
+            except aiohttp.ClientError as err:
+                last_exception = CryptoInfoConnectionError(f"Connection error: {err}")
+                _LOGGER.debug("Request failed (attempt %d/%d): %s", attempt + 1, MAX_RETRIES, err)
+
+            except TimeoutError:
+                last_exception = CryptoInfoConnectionError("Request timeout")
+                _LOGGER.debug("Request timeout (attempt %d/%d)", attempt + 1, MAX_RETRIES)
+
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_DELAY * (2**attempt)
+                await asyncio.sleep(delay)
+
+        self._record_failure()
+        _LOGGER.error("Error fetching CKPool user stats for %s: %s", btc_address, last_exception)
+        return None
 
     def _extract_json_from_html(self, html: str) -> dict | None:
         """Extract JSON data from Next.js HTML page."""
-        import re
-
         # EU pool embeds JSON in the HTML within script tags, escaped as JavaScript strings
-        # Pattern matches escaped JSON: \"hashrate1m\":\"1110000000000\"
         try:
             # Extract hashrate fields (always strings in quotes)
             hashrate1m = re.search(r'\\"hashrate1m\\":\\"(\d+)\\"', html)
@@ -178,10 +333,10 @@ class CKPoolAPI:
                     "bestshare": float(best_share.group(1)) if best_share else 0,
                     "bestever": float(best_ever.group(1)) if best_ever else 0,
                 }
-                _LOGGER.debug(f"Extracted fields from escaped HTML: {data}")
+                _LOGGER.debug("Extracted fields from escaped HTML: %s", data)
                 return data
         except (ValueError, AttributeError) as e:
-            _LOGGER.debug(f"Field extraction error: {e}")
+            _LOGGER.debug("Field extraction error: %s", e)
 
         _LOGGER.warning("Failed to extract any mining data from HTML")
         return None
@@ -189,18 +344,17 @@ class CKPoolAPI:
     def _parse_ckpool_data(self, data: dict) -> dict:
         """Parse CKPool JSON data to extract mining statistics."""
 
-        # Convert hashrate to GH/s (handles both string format and nanoseconds)
-        def convert_hashrate(hashrate_value) -> float:
-            """Convert hashrate to GH/s."""
+        def convert_hashrate(hashrate_value: str | int | float | None) -> float:
+            """Convert hashrate to GH/s.
+
+            Handles two formats:
+            - EU pool: integer in H/s (e.g., 1060000000000 = ~1 TH/s)
+            - Global pool: string with unit suffix (e.g., "3.12T" = 3.12 TH/s)
+            """
             if not hashrate_value or hashrate_value == "0" or hashrate_value == 0:
                 return 0.0
 
             try:
-                # EU pool format: integer nanoseconds (e.g., 1060000000000)
-                if isinstance(hashrate_value, (int, float)) and hashrate_value > 1000:
-                    # Convert from H/s to GH/s
-                    return round(hashrate_value / 1e9, 2)
-
                 # Global pool format: string with unit (e.g., "3.12T")
                 if isinstance(hashrate_value, str):
                     # Check if last char is a unit letter
@@ -210,8 +364,13 @@ class CKPoolAPI:
                         # Convert to GH/s
                         multipliers = {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3, "P": 1e6}
                         return round(value * multipliers.get(unit, 1), 2)
-                    # Plain number as string
-                    return round(float(hashrate_value), 2)
+                    # Plain number as string - treat as H/s
+                    return round(float(hashrate_value) / 1e9, 2)
+
+                # EU pool format: integer in H/s (e.g., 1060000000000)
+                # Any numeric value is treated as H/s and converted to GH/s
+                if isinstance(hashrate_value, int):
+                    return round(hashrate_value / 1e9, 2)
 
                 return 0.0
             except (ValueError, IndexError, TypeError):

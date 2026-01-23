@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
-"""Mining sensor components for Cryptoinfo
+"""Mining sensor components for Cryptoinfo.
+
 Author: foXaCe
 """
 
-from datetime import timedelta
+from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.core import HomeAssistant
+import asyncio
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
+    UpdateFailed,
 )
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from homeassistant.core import HomeAssistant
 
 from .const.const import (
     _LOGGER,
@@ -19,12 +30,16 @@ from .const.const import (
     CONF_ID,
     CONF_SENSOR_TYPE,
     CONF_UPDATE_FREQUENCY,
+    DOMAIN,
     SENSOR_PREFIX,
     SENSOR_TYPE_BTC_MEMPOOL,
     SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
 )
 from .helper.blockchain_api import BlockchainAPI, CKPoolAPI
+
+# Default timeout for API requests (seconds)
+DEFAULT_TIMEOUT = 30
 
 
 async def async_setup_mining_sensors(
@@ -62,10 +77,10 @@ async def async_setup_mining_sensors(
     return True
 
 
-class BTCNetworkCoordinator(DataUpdateCoordinator):
+class BTCNetworkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch Bitcoin network statistics."""
 
-    def __init__(self, hass: HomeAssistant, update_interval: timedelta):
+    def __init__(self, hass: HomeAssistant, update_interval: timedelta) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -74,15 +89,20 @@ class BTCNetworkCoordinator(DataUpdateCoordinator):
         )
         self.api = BlockchainAPI(hass)
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from blockchain API."""
-        return await self.api.get_network_stats()
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                data = await self.api.get_network_stats()
+                return data or {}
+        except TimeoutError as err:
+            raise UpdateFailed("Request timeout") from err
 
 
-class BTCMempoolCoordinator(DataUpdateCoordinator):
+class BTCMempoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch Bitcoin mempool statistics."""
 
-    def __init__(self, hass: HomeAssistant, update_interval: timedelta):
+    def __init__(self, hass: HomeAssistant, update_interval: timedelta) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -91,15 +111,20 @@ class BTCMempoolCoordinator(DataUpdateCoordinator):
         )
         self.api = BlockchainAPI(hass)
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from mempool API."""
-        return await self.api.get_mempool_stats()
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                data = await self.api.get_mempool_stats()
+                return data or {}
+        except TimeoutError as err:
+            raise UpdateFailed("Request timeout") from err
 
 
-class CKPoolCoordinator(DataUpdateCoordinator):
+class CKPoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch CKPool mining statistics."""
 
-    def __init__(self, hass: HomeAssistant, btc_address: str, pool_region: str, update_interval: timedelta):
+    def __init__(self, hass: HomeAssistant, btc_address: str, pool_region: str, update_interval: timedelta) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -109,33 +134,53 @@ class CKPoolCoordinator(DataUpdateCoordinator):
         self.api = CKPoolAPI(hass, pool_region)
         self.btc_address = btc_address
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from CKPool API."""
-        return await self.api.get_user_stats(self.btc_address)
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                data = await self.api.get_user_stats(self.btc_address)
+                return data or {}
+        except TimeoutError as err:
+            raise UpdateFailed("Request timeout") from err
 
 
-class BTCNetworkSensor(CoordinatorEntity, SensorEntity):
+class BTCNetworkSensor(CoordinatorEntity[BTCNetworkCoordinator], SensorEntity):
     """Bitcoin Network Statistics Sensor."""
 
-    _attr_has_entity_name = True
+    __slots__ = ()
 
-    def __init__(self, coordinator: BTCNetworkCoordinator, id_name: str):
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "btc_network"
+    _attr_icon = "mdi:bitcoin"
+    _attr_native_unit_of_measurement = "EH/s"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: BTCNetworkCoordinator, id_name: str) -> None:
         super().__init__(coordinator)
         self._attr_name = f"{id_name} Bitcoin Network" if id_name else "Bitcoin Network"
         self._attr_unique_id = f"{SENSOR_PREFIX}btc_network_{id_name}".lower().replace(" ", "_")
-        self._attr_icon = "mdi:bitcoin"
-        self._attr_native_unit_of_measurement = "EH/s"
-        self._attr_device_class = None
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, "btc_network")},
+            name="Bitcoin Network",
+            manufacturer="Bitcoin",
+            model="Network Statistics",
+        )
 
     @property
-    def native_value(self):
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and bool(self.coordinator.data)
+
+    @property
+    def native_value(self) -> float | None:
         """Return the hashrate as the main value."""
         if self.coordinator.data:
             return round(self.coordinator.data.get("hashrate", 0), 2)
         return None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         if not self.coordinator.data:
             return {}
@@ -152,28 +197,42 @@ class BTCNetworkSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-class BTCMempoolSensor(CoordinatorEntity, SensorEntity):
+class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
     """Bitcoin Mempool Statistics Sensor."""
 
-    _attr_has_entity_name = True
+    __slots__ = ()
 
-    def __init__(self, coordinator: BTCMempoolCoordinator, id_name: str):
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "btc_mempool"
+    _attr_icon = "mdi:database"
+    _attr_native_unit_of_measurement = "txs"
+
+    def __init__(self, coordinator: BTCMempoolCoordinator, id_name: str) -> None:
         super().__init__(coordinator)
         self._attr_name = f"{id_name} Bitcoin Mempool" if id_name else "Bitcoin Mempool"
         self._attr_unique_id = f"{SENSOR_PREFIX}btc_mempool_{id_name}".lower().replace(" ", "_")
-        self._attr_icon = "mdi:database"
-        self._attr_native_unit_of_measurement = "txs"
-        self._attr_device_class = None
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, "btc_mempool")},
+            name="Bitcoin Mempool",
+            manufacturer="Bitcoin",
+            model="Mempool Statistics",
+        )
 
     @property
-    def native_value(self):
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and bool(self.coordinator.data)
+
+    @property
+    def native_value(self) -> int | None:
         """Return the mempool size as the main value."""
         if self.coordinator.data:
             return self.coordinator.data.get("mempool_size", 0)
         return None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         if not self.coordinator.data:
             return {}
@@ -189,29 +248,44 @@ class BTCMempoolSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-class CKPoolMiningSensor(CoordinatorEntity, SensorEntity):
+class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
     """CKPool Solo Mining Statistics Sensor."""
 
-    _attr_has_entity_name = True
+    __slots__ = ("btc_address",)
 
-    def __init__(self, coordinator: CKPoolCoordinator, id_name: str, btc_address: str):
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "ckpool_mining"
+    _attr_icon = "mdi:pickaxe"
+    _attr_native_unit_of_measurement = "GH/s"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: CKPoolCoordinator, id_name: str, btc_address: str) -> None:
         super().__init__(coordinator)
         self._attr_name = f"{id_name} CKPool Mining" if id_name else "CKPool Mining"
         self._attr_unique_id = f"{SENSOR_PREFIX}ckpool_{btc_address[:8]}".lower().replace(" ", "_")
-        self._attr_icon = "mdi:pickaxe"
-        self._attr_native_unit_of_measurement = "GH/s"
-        self._attr_device_class = None
         self.btc_address = btc_address
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"ckpool_{btc_address[:8]}")},
+            name=f"CKPool Mining {btc_address[:8]}...",
+            manufacturer="CKPool",
+            model="Solo Mining",
+        )
 
     @property
-    def native_value(self):
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and bool(self.coordinator.data)
+
+    @property
+    def native_value(self) -> float | None:
         """Return the hashrate as the main value."""
         if self.coordinator.data:
             return round(self.coordinator.data.get("hashrate", 0), 2)
         return None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         if not self.coordinator.data:
             return {}
