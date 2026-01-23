@@ -82,6 +82,7 @@ ignore = [
 "tests/**/*.py" = [
     "S101",   # Use of assert
     "D",      # Docstrings not required in tests
+    "PT001",  # Use @pytest.fixture over @pytest.fixture() - conflicts with auto-fix
 ]
 "custom_components/**/*.py" = [
     "E501",   # Line too long (legacy code)
