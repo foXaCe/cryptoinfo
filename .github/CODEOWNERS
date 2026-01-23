@@ -1,0 +1,11 @@
+# Code owners for cryptoinfo integration
+# These users will be automatically requested for review
+
+# Default owner for everything
+* @heyajohnny @foXaCe
+
+# Custom components
+/custom_components/ @heyajohnny @foXaCe
+
+# GitHub workflows
+/.github/ @foXaCe

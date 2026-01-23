@@ -1,96 +1,90 @@
-#!/usr/bin/env python3
-"""
-Sensor component for Cryptoinfo
-Author: Johnny Visser
-"""
+"""Sensor platform for Cryptoinfo integration."""
 
-import urllib.error
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+import logging
+from typing import TYPE_CHECKING, Any
 
-from homeassistant import config_entries
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const.const import (
-    _LOGGER,
-    API_ENDPOINT,
     ATTR_1H_CHANGE,
+    ATTR_1Y_CHANGE,
     ATTR_7D_CHANGE,
     ATTR_14D_CHANGE,
     ATTR_24H_CHANGE,
     ATTR_24H_VOLUME,
     ATTR_30D_CHANGE,
-    ATTR_1Y_CHANGE,
+    ATTR_ATH,
+    ATTR_ATH_CHANGE,
+    ATTR_ATH_DATE,
     ATTR_BASE_PRICE,
     ATTR_CIRCULATING_SUPPLY,
-    ATTR_LAST_UPDATE,
     ATTR_CRYPTOCURRENCY_ID,
     ATTR_CRYPTOCURRENCY_NAME,
     ATTR_CRYPTOCURRENCY_SYMBOL,
     ATTR_CURRENCY_NAME,
+    ATTR_IMAGE,
+    ATTR_LAST_UPDATE,
     ATTR_MARKET_CAP,
     ATTR_MULTIPLIER,
-    ATTR_TOTAL_SUPPLY,
-    ATTR_ATH,
-    ATTR_ATH_DATE,
-    ATTR_ATH_CHANGE,
     ATTR_RANK,
-    ATTR_IMAGE,
+    ATTR_TOTAL_SUPPLY,
     CONF_CRYPTOCURRENCY_IDS,
     CONF_CURRENCY_NAME,
     CONF_ID,
     CONF_MIN_TIME_BETWEEN_REQUESTS,
     CONF_MULTIPLIERS,
+    CONF_SENSOR_TYPE,
     CONF_UNIT_OF_MEASUREMENT,
     CONF_UPDATE_FREQUENCY,
+    DOMAIN,
     SENSOR_PREFIX,
+    SENSOR_TYPE_BTC_MEMPOOL,
+    SENSOR_TYPE_BTC_NETWORK,
+    SENSOR_TYPE_CKPOOL_MINING,
+    SENSOR_TYPE_PRICE,
 )
+from .coordinator import CryptoDataCoordinator
+
+if TYPE_CHECKING:
+    from .const.const import CryptoInfoConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: config_entries.ConfigEntry,
+    entry: CryptoInfoConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    _LOGGER.debug("Setup Cryptoinfo sensor")
-
-    config = config_entry.data
-
-    # Check if this is a mining sensor
-    from .const.const import (
-        CONF_SENSOR_TYPE,
-        SENSOR_TYPE_PRICE,
-        SENSOR_TYPE_BTC_NETWORK,
-        SENSOR_TYPE_BTC_MEMPOOL,
-        SENSOR_TYPE_CKPOOL_MINING,
-    )
-
+    """Set up Cryptoinfo sensor entities."""
+    config = entry.data
     sensor_type = config.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
 
     # Route to mining sensors if applicable
     if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
         from .mining_sensor import async_setup_mining_sensors
-        return await async_setup_mining_sensors(hass, config, async_add_entities)
 
-    # Continue with price sensors
+        await async_setup_mining_sensors(hass, config, async_add_entities)
+        return
+
+    # Price sensor setup
+    _LOGGER.debug("Setting up Cryptoinfo price sensors for entry %s", entry.entry_id)
 
     id_name = (config.get(CONF_ID) or "").strip()
-    cryptocurrency_ids = config.get(CONF_CRYPTOCURRENCY_IDS).lower().strip()
-    currency_name = config.get(CONF_CURRENCY_NAME).strip()
+    cryptocurrency_ids = config.get(CONF_CRYPTOCURRENCY_IDS, "").lower().strip()
+    currency_name = config.get(CONF_CURRENCY_NAME, "").strip()
     unit_of_measurement = (config.get(CONF_UNIT_OF_MEASUREMENT) or "").strip()
-    multipliers = config.get(CONF_MULTIPLIERS).strip()
-    update_frequency = timedelta(minutes=(float(config.get(CONF_UPDATE_FREQUENCY))))
-    min_time_between_requests = timedelta(
-        minutes=(float(config.get(CONF_MIN_TIME_BETWEEN_REQUESTS)))
-    )
+    multipliers = config.get(CONF_MULTIPLIERS, "1").strip()
+    update_frequency = timedelta(minutes=float(config.get(CONF_UPDATE_FREQUENCY, 5)))
+    min_time_between_requests = timedelta(minutes=float(config.get(CONF_MIN_TIME_BETWEEN_REQUESTS, 0.25)))
 
-    # Create coordinator for centralized data fetching
+    # Create coordinator
     coordinator = CryptoDataCoordinator(
         hass,
         cryptocurrency_ids,
@@ -100,174 +94,46 @@ async def async_setup_entry(
         id_name,
     )
 
-    # Wait for coordinator to do first update
+    # Store coordinator in runtime_data
+    entry.runtime_data.coordinator = coordinator
+    entry.runtime_data.coordinators[entry.entry_id] = coordinator
+
+    # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
-    entities = []
+    # Create entities
     crypto_list = [crypto.strip() for crypto in cryptocurrency_ids.split(",")]
-    multipliers_list = [multiplier.strip() for multiplier in multipliers.split(",")]
+    multipliers_list = [mult.strip() for mult in multipliers.split(",")]
 
-    multipliers_length = len(multipliers_list)
-    crypto_list_length = len(crypto_list)
-
-    if multipliers_length != crypto_list_length:
+    if len(crypto_list) != len(multipliers_list):
         _LOGGER.error(
-            f"Length mismatch: multipliers ({multipliers_length}) and cryptocurrency id's ({crypto_list_length}) must have the same length"
+            "Length mismatch: %d cryptocurrencies but %d multipliers",
+            len(crypto_list),
+            len(multipliers_list),
         )
-        return False
+        return
 
-    for i, cryptocurrency_id in enumerate(crypto_list):
-        try:
-            entities.append(
-                CryptoinfoSensor(
-                    coordinator,
-                    cryptocurrency_id,
-                    currency_name,
-                    unit_of_measurement,
-                    multipliers_list[i],
-                    id_name,
-                )
-            )
-        except urllib.error.HTTPError as error:
-            _LOGGER.error(error.reason)
-            return False
+    entities = [
+        CryptoinfoSensor(
+            coordinator=coordinator,
+            cryptocurrency_id=crypto_id,
+            currency_name=currency_name,
+            unit_of_measurement=unit_of_measurement,
+            multiplier=multipliers_list[i],
+            id_name=id_name,
+        )
+        for i, crypto_id in enumerate(crypto_list)
+    ]
 
     async_add_entities(entities)
 
 
-class CryptoDataCoordinator(DataUpdateCoordinator):
-    _active_coordinators = set()  # Set to track active coordinator IDs
-    _instance_count = 0  # Class variable to track number of coordinators
-    _last_update_time = None
-    _last_updated_id = None
+class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
+    """Cryptocurrency price sensor."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        cryptocurrency_ids: str,
-        currency_name: str,
-        update_frequency: timedelta,
-        min_time_between_requests: timedelta,
-        id_name: str,
-    ):
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="Crypto Data",
-            update_interval=update_frequency,
-        )
-        self.instance_id = (
-            CryptoDataCoordinator._instance_count
-        )  # Assign current count as instance ID
-        CryptoDataCoordinator._instance_count += 1  # Increment the counter
-        CryptoDataCoordinator._active_coordinators.add(self.instance_id)
-        self.cryptocurrency_ids = cryptocurrency_ids
-        self.currency_name = currency_name
-        self.id_name = id_name
-        self.min_time_between_requests = min_time_between_requests
-        self.update_frequency = update_frequency
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Handle removal from Home Assistant."""
-        _LOGGER.debug(f"Removing coordinator {self.instance_id}")
-        CryptoDataCoordinator._active_coordinators.discard(self.instance_id)
-        # If this was the last updated ID, reset it
-        if CryptoDataCoordinator._last_updated_id == self.instance_id:
-            CryptoDataCoordinator._last_updated_id = None
-
-    async def _async_update_data(self):
-        """Fetch data from API endpoint with coordinated timing."""
-        current_time = datetime.now()
-
-        # If this is the first ever request, fetch data immediately
-        if CryptoDataCoordinator._last_update_time is None:
-            CryptoDataCoordinator._last_update_time = current_time
-            CryptoDataCoordinator._last_updated_id = self.instance_id
-
-            _LOGGER.debug(
-                f"First request, fetching data for sensor: {self.id_name} instance_id: {self.instance_id} cryptocurrency_ids: {self.cryptocurrency_ids}"
-            )
-
-            url = (
-                f"{API_ENDPOINT}coins/markets"
-                f"?ids={self.cryptocurrency_ids}"
-                f"&vs_currency={self.currency_name}"
-                f"&price_change_percentage=1h%2C24h%2C7d%2C14d%2C30d%2C1y"
-            )
-
-            try:
-                session = aiohttp_client.async_get_clientsession(self.hass)
-                async with session.get(url) as response:
-                    response.raise_for_status()
-                    data = await response.json()
-                    return {coin["id"]: coin for coin in data}
-            except Exception as err:
-                _LOGGER.error(f"Error fetching data: {err}")
-                return None
-
-        time_since_last_request = current_time - CryptoDataCoordinator._last_update_time
-
-        if (
-            time_since_last_request + timedelta(seconds=1)
-            < self.min_time_between_requests
-        ):
-            _LOGGER.debug(
-                f"Not enough time has passed {self.instance_id} {self.min_time_between_requests} "
-                f"waiting for time between requests {time_since_last_request} frequency:{self.update_frequency}"
-            )
-            return self.data if self.data else None
-
-        # Find the next active coordinator ID
-        last_id = CryptoDataCoordinator._last_updated_id
-        _LOGGER.debug(
-            f"Last id {last_id}, Active coordinators: {sorted(CryptoDataCoordinator._active_coordinators)}"
-        )
-
-        if last_id is None or last_id not in CryptoDataCoordinator._active_coordinators:
-            should_update = self.instance_id == min(
-                CryptoDataCoordinator._active_coordinators
-            )
-        else:
-            # Get sorted list of active coordinators
-            active_ids = sorted(CryptoDataCoordinator._active_coordinators)
-            current_index = active_ids.index(last_id)
-            next_index = (current_index + 1) % len(active_ids)
-            next_id = active_ids[next_index]
-            should_update = self.instance_id == next_id
-            _LOGGER.debug(f"next_id {next_id}")
-
-        if not should_update:
-            _LOGGER.debug(f"Coordinator {self.instance_id} waiting for turn")
-            return self.data if self.data else None
-
-        _LOGGER.debug(
-            f"Fetch data from API endpoint, sensor: {self.id_name} instance_id: {self.instance_id} cryptocurrency_ids: {self.cryptocurrency_ids}"
-        )
-
-        url = (
-            f"{API_ENDPOINT}coins/markets"
-            f"?ids={self.cryptocurrency_ids}"
-            f"&vs_currency={self.currency_name}"
-            f"&price_change_percentage=1h%2C24h%2C7d%2C14d%2C30d%2C1y"
-        )
-
-        try:
-            session = aiohttp_client.async_get_clientsession(self.hass)
-            async with session.get(url) as response:
-                response.raise_for_status()
-                data = await response.json()
-
-                # Update the last update time and ID only after successful request
-                CryptoDataCoordinator._last_update_time = current_time
-                CryptoDataCoordinator._last_updated_id = self.instance_id
-
-                return {coin["id"]: coin for coin in data}
-        except Exception as err:
-            _LOGGER.error(f"Error fetching data: {err}")
-
-
-class CryptoinfoSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_icon = "mdi:bitcoin"
 
     def __init__(
         self,
@@ -277,18 +143,17 @@ class CryptoinfoSensor(CoordinatorEntity, SensorEntity):
         unit_of_measurement: str,
         multiplier: str,
         id_name: str,
-    ):
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self.cryptocurrency_id = cryptocurrency_id
         self.currency_name = currency_name
         self.multiplier = multiplier
+        self._id_name = id_name
 
-        # Modern HA 2025 entity properties
-        self._attr_device_class = SensorDeviceClass.MONETARY
-        self._attr_state_class = None  # No state class for monetary prices
+        # Entity attributes
         self._attr_native_unit_of_measurement = unit_of_measurement or None
         self._attr_translation_key = "crypto_price"
-        self._attr_icon = "mdi:bitcoin"
 
         # Entity naming
         self._attr_name = f"{cryptocurrency_id.capitalize()} {currency_name.upper()}"
@@ -296,76 +161,85 @@ class CryptoinfoSensor(CoordinatorEntity, SensorEntity):
             self._attr_name = f"{id_name} {self._attr_name}"
 
         # Unique ID
-        self._attr_unique_id = (
-            f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
-        )
+        self._attr_unique_id = f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
+
+        # Device info (enables device grouping in HA)
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"cryptoinfo_{id_name or 'default'}")},
+            "name": f"Cryptoinfo {id_name or 'Wallet'}",
+            "manufacturer": "CoinGecko",
+            "model": "Cryptocurrency Tracker",
+        }
 
     @property
-    def native_value(self):
-        """Return the native value of the sensor."""
-        if self.coordinator.data and self.cryptocurrency_id in self.coordinator.data:
-            return float(
-                self.coordinator.data[self.cryptocurrency_id]["current_price"]
-            ) * float(self.multiplier)
-        return None
+    def native_value(self) -> float | None:
+        """Return the current price."""
+        if not self.coordinator.data:
+            return None
+        coin_data = self.coordinator.data.get(self.cryptocurrency_id)
+        if not coin_data:
+            return None
+        try:
+            return float(coin_data["current_price"]) * float(self.multiplier)
+        except (KeyError, TypeError, ValueError):
+            return None
 
     @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        if (
-            not self.coordinator.data
-            or self.cryptocurrency_id not in self.coordinator.data
-        ):
-            return {
-                ATTR_LAST_UPDATE: datetime.today().strftime("%d-%m-%Y %H:%M"),
-                ATTR_CRYPTOCURRENCY_NAME: None,
-                ATTR_CURRENCY_NAME: None,
-                ATTR_BASE_PRICE: None,
-                ATTR_MULTIPLIER: None,
-                ATTR_24H_VOLUME: None,
-                ATTR_1H_CHANGE: None,
-                ATTR_24H_CHANGE: None,
-                ATTR_7D_CHANGE: None,
-                ATTR_14D_CHANGE: None,
-                ATTR_30D_CHANGE: None,
-                ATTR_1Y_CHANGE: None,
-                ATTR_MARKET_CAP: None,
-                ATTR_CIRCULATING_SUPPLY: None,
-                ATTR_TOTAL_SUPPLY: None,
-                ATTR_ATH: None,
-                ATTR_ATH_DATE: None,
-                ATTR_ATH_CHANGE: None,
-                ATTR_RANK: None,
-                ATTR_IMAGE: None,
-            }
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        if not self.coordinator.data:
+            return self._empty_attributes()
 
-        data = self.coordinator.data[self.cryptocurrency_id]
+        data = self.coordinator.data.get(self.cryptocurrency_id)
+        if not data:
+            return self._empty_attributes()
+
         return {
-            ATTR_LAST_UPDATE: datetime.today().strftime("%d-%m-%Y %H:%M"),
+            ATTR_LAST_UPDATE: datetime.now().strftime("%d-%m-%Y %H:%M"),
             ATTR_CRYPTOCURRENCY_ID: self.cryptocurrency_id,
-            ATTR_CRYPTOCURRENCY_NAME: data["name"],
-            ATTR_CRYPTOCURRENCY_SYMBOL: data["symbol"],
+            ATTR_CRYPTOCURRENCY_NAME: data.get("name"),
+            ATTR_CRYPTOCURRENCY_SYMBOL: data.get("symbol"),
             ATTR_CURRENCY_NAME: self.currency_name,
-            ATTR_BASE_PRICE: data["current_price"],
+            ATTR_BASE_PRICE: data.get("current_price"),
             ATTR_MULTIPLIER: self.multiplier,
-            ATTR_24H_VOLUME: data["total_volume"],
-            ATTR_1H_CHANGE: data["price_change_percentage_1h_in_currency"],
-            ATTR_24H_CHANGE: data["price_change_percentage_24h_in_currency"],
-            ATTR_7D_CHANGE: data["price_change_percentage_7d_in_currency"],
-            ATTR_14D_CHANGE: data["price_change_percentage_14d_in_currency"],
-            ATTR_30D_CHANGE: data["price_change_percentage_30d_in_currency"],
-            ATTR_1Y_CHANGE: data["price_change_percentage_1y_in_currency"],
-            ATTR_MARKET_CAP: data["market_cap"],
-            ATTR_CIRCULATING_SUPPLY: data["circulating_supply"],
-            ATTR_TOTAL_SUPPLY: data["total_supply"],
+            ATTR_24H_VOLUME: data.get("total_volume"),
+            ATTR_1H_CHANGE: data.get("price_change_percentage_1h_in_currency"),
+            ATTR_24H_CHANGE: data.get("price_change_percentage_24h_in_currency"),
+            ATTR_7D_CHANGE: data.get("price_change_percentage_7d_in_currency"),
+            ATTR_14D_CHANGE: data.get("price_change_percentage_14d_in_currency"),
+            ATTR_30D_CHANGE: data.get("price_change_percentage_30d_in_currency"),
+            ATTR_1Y_CHANGE: data.get("price_change_percentage_1y_in_currency"),
+            ATTR_MARKET_CAP: data.get("market_cap"),
+            ATTR_CIRCULATING_SUPPLY: data.get("circulating_supply"),
+            ATTR_TOTAL_SUPPLY: data.get("total_supply"),
             ATTR_ATH: data.get("ath"),
             ATTR_ATH_DATE: data.get("ath_date"),
             ATTR_ATH_CHANGE: data.get("ath_change_percentage"),
             ATTR_RANK: data.get("market_cap_rank"),
-            ATTR_IMAGE: data["image"],
+            ATTR_IMAGE: data.get("image"),
         }
 
-    async def async_will_remove_from_hass(self) -> None:
-        """Handle removal from Home Assistant."""
-        await self.coordinator.async_will_remove_from_hass()  # type: ignore
-        await super().async_will_remove_from_hass()
+    def _empty_attributes(self) -> dict[str, Any]:
+        """Return empty attributes when no data available."""
+        return {
+            ATTR_LAST_UPDATE: datetime.now().strftime("%d-%m-%Y %H:%M"),
+            ATTR_CRYPTOCURRENCY_NAME: None,
+            ATTR_CURRENCY_NAME: None,
+            ATTR_BASE_PRICE: None,
+            ATTR_MULTIPLIER: None,
+            ATTR_24H_VOLUME: None,
+            ATTR_1H_CHANGE: None,
+            ATTR_24H_CHANGE: None,
+            ATTR_7D_CHANGE: None,
+            ATTR_14D_CHANGE: None,
+            ATTR_30D_CHANGE: None,
+            ATTR_1Y_CHANGE: None,
+            ATTR_MARKET_CAP: None,
+            ATTR_CIRCULATING_SUPPLY: None,
+            ATTR_TOTAL_SUPPLY: None,
+            ATTR_ATH: None,
+            ATTR_ATH_DATE: None,
+            ATTR_ATH_CHANGE: None,
+            ATTR_RANK: None,
+            ATTR_IMAGE: None,
+        }

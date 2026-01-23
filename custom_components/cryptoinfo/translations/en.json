@@ -80,18 +80,25 @@
                     "update_frequency": "How often to refresh prices (minutes). Minimum 1 minute.",
                     "min_time_between_requests": "Minimum delay between API requests (minutes). Shared across all sensors."
                 }
+            },
+            "reauth_confirm": {
+                "title": "Reconnect to CoinGecko",
+                "description": "The connection to the CoinGecko API needs to be verified. Click submit to retry."
             }
         },
         "abort": {
             "already_configured": "A sensor with this name (Identifier) already exists",
-            "reconfigure_successful": "Re-configuration was successful"
+            "reconfigure_successful": "Re-configuration was successful",
+            "reauth_successful": "Re-authentication was successful",
+            "entry_not_found": "Configuration entry not found"
         },
         "error": {
             "cannot_connect": "Error: Cannot connect",
             "mismatch_values": "The number of cryptocurrency id's ({crypto_count}) does not match the number of multipliers ({multiplier_count})",
             "invalid_cryptocurrency_ids": "The following cryptocurrency IDs are not valid in CoinGecko: {invalid_ids}. Please check the list at https://api.coingecko.com/api/v3/coins/list",
             "no_crypto_selected": "Please select at least one cryptocurrency",
-            "no_results": "No cryptocurrencies found matching your search. Please try a different search term."
+            "no_results": "No cryptocurrencies found matching your search. Please try a different search term.",
+            "api_error": "Unable to connect to CoinGecko API. Please try again later."
         }
     }
 }

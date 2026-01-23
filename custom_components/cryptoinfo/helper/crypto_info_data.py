@@ -10,9 +10,7 @@ class CryptoInfoData:
     async def async_initialize(self):
         """Initialize the data from storage."""
         await self.store.async_load()
-        self._min_time_between_requests = self.store.data.get(
-            "min_time_between_requests", 0.25
-        )
+        self._min_time_between_requests = self.store.data.get("min_time_between_requests", 0.25)
 
     @property
     def min_time_between_requests(self):

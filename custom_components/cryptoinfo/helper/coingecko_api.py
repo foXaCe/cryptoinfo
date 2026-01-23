@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""
-CoinGecko API helper for Cryptoinfo
+"""CoinGecko API helper for Cryptoinfo
 Author: Johnny Visser
 """
 
 from homeassistant.helpers import aiohttp_client
-from ..const.const import API_ENDPOINT, _LOGGER
+
+from ..const.const import _LOGGER, API_ENDPOINT
 
 
 class CoinGeckoAPI:
@@ -40,13 +40,10 @@ class CoinGeckoAPI:
         coin_list = await self.get_coin_list()
         if not coin_list:
             # If we can't fetch the list, assume all IDs are valid (fallback)
-            return {crypto_id: True for crypto_id in crypto_ids}
+            return dict.fromkeys(crypto_ids, True)
 
         valid_ids = {coin["id"].lower() for coin in coin_list}
-        return {
-            crypto_id: crypto_id.lower() in valid_ids
-            for crypto_id in crypto_ids
-        }
+        return {crypto_id: crypto_id.lower() in valid_ids for crypto_id in crypto_ids}
 
     async def search_cryptocurrencies(self, query: str, limit: int = 10) -> list[dict]:
         """Search for cryptocurrencies by name or symbol.
@@ -59,7 +56,8 @@ class CoinGeckoAPI:
 
         query_lower = query.lower()
         matches = [
-            coin for coin in coin_list
+            coin
+            for coin in coin_list
             if query_lower in coin["id"].lower()
             or query_lower in coin["name"].lower()
             or query_lower in coin["symbol"].lower()
@@ -79,14 +77,7 @@ class CoinGeckoAPI:
                 response.raise_for_status()
                 data = await response.json()
                 # Return simplified format matching coin_list
-                return [
-                    {
-                        "id": coin["id"],
-                        "name": coin["name"],
-                        "symbol": coin["symbol"]
-                    }
-                    for coin in data
-                ]
+                return [{"id": coin["id"], "name": coin["name"], "symbol": coin["symbol"]} for coin in data]
         except Exception as err:
             _LOGGER.error(f"Error fetching top cryptocurrencies from CoinGecko: {err}")
             # Fallback to hardcoded top 10

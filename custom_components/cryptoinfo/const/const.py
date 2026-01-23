@@ -1,6 +1,31 @@
+"""Constants for Cryptoinfo integration."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+
+    from ..coordinator import CryptoDataCoordinator
+    from ..helper.crypto_info_data import CryptoInfoData
 
 DOMAIN = "cryptoinfo"
+
+# Type alias for typed ConfigEntry (Platinum pattern)
+type CryptoInfoConfigEntry = ConfigEntry[CryptoInfoRuntimeData]
+
+
+@dataclass(slots=True)
+class CryptoInfoRuntimeData:
+    """Runtime data stored on the config entry."""
+
+    shared_data: CryptoInfoData
+    coordinator: CryptoDataCoordinator | None = None
+    coordinators: dict[str, CryptoDataCoordinator] = field(default_factory=dict)
+
 
 # Price sensor configuration
 CONF_ID = "id"
@@ -28,6 +53,8 @@ SENSOR_TYPE_BTC_MEMPOOL = "btc_mempool"
 SENSOR_TYPE_CKPOOL_MINING = "ckpool_mining"
 
 SENSOR_PREFIX = "Cryptoinfo "
+
+# Entity attributes
 ATTR_LAST_UPDATE = "last_update"
 ATTR_CRYPTOCURRENCY_ID = "cryptocurrency_id"
 ATTR_CRYPTOCURRENCY_NAME = "cryptocurrency_name"

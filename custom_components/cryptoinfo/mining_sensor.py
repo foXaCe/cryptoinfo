@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Mining sensor components for Cryptoinfo
+"""Mining sensor components for Cryptoinfo
 Author: foXaCe
 """
 
 from datetime import timedelta
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
@@ -21,8 +20,8 @@ from .const.const import (
     CONF_SENSOR_TYPE,
     CONF_UPDATE_FREQUENCY,
     SENSOR_PREFIX,
-    SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_BTC_MEMPOOL,
+    SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
 )
 from .helper.blockchain_api import BlockchainAPI, CKPoolAPI
@@ -49,7 +48,7 @@ async def async_setup_mining_sensors(
         async_add_entities([BTCMempoolSensor(coordinator, id_name)])
 
     elif sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-        from .const.const import CONF_CKPOOL_REGION, CKPOOL_REGION_EU
+        from .const.const import CKPOOL_REGION_EU, CONF_CKPOOL_REGION
 
         btc_address = config.get(CONF_BTC_ADDRESS, "").strip()
         if not btc_address:
@@ -222,18 +221,18 @@ class CKPoolMiningSensor(CoordinatorEntity, SensorEntity):
         # Format best_share for display
         best_share = data.get("best_share", 0)
         if best_share > 1e9:
-            best_share_display = f"{best_share/1e9:.2f} G"
+            best_share_display = f"{best_share / 1e9:.2f} G"
         elif best_share > 1e6:
-            best_share_display = f"{best_share/1e6:.2f} M"
+            best_share_display = f"{best_share / 1e6:.2f} M"
         else:
             best_share_display = f"{best_share:.0f}"
 
         # Format best_ever for display
         best_ever = data.get("best_ever", 0)
         if best_ever > 1e9:
-            best_ever_display = f"{best_ever/1e9:.2f} G"
+            best_ever_display = f"{best_ever / 1e9:.2f} G"
         elif best_ever > 1e6:
-            best_ever_display = f"{best_ever/1e6:.2f} M"
+            best_ever_display = f"{best_ever / 1e6:.2f} M"
         else:
             best_ever_display = f"{best_ever:.0f}"
 

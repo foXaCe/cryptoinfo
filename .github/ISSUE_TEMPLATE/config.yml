@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/heyajohnny/cryptoinfo
+    about: Read the documentation before opening an issue
+  - name: Discussions
+    url: https://github.com/heyajohnny/cryptoinfo/discussions
+    about: Ask questions and discuss features

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""
-Blockchain API helper for Bitcoin network stats
+"""Blockchain API helper for Bitcoin network stats
 Author: foXaCe
 """
 
 from homeassistant.helpers import aiohttp_client
+
 from ..const.const import _LOGGER
 
 MEMPOOL_SPACE_API = "https://mempool.space/api"
@@ -118,16 +118,16 @@ class CKPoolAPI:
                 response.raise_for_status()
 
                 # Check content type
-                content_type = response.headers.get('Content-Type', '')
+                content_type = response.headers.get("Content-Type", "")
 
-                if 'application/json' in content_type:
+                if "application/json" in content_type:
                     # Global pool: direct JSON API
                     data = await response.json()
                     _LOGGER.debug(f"Got JSON data from {self.pool_url}: {data}")
                     result = self._parse_ckpool_data(data)
                     _LOGGER.debug(f"Parsed result: {result}")
                     return result
-                elif 'text/html' in content_type:
+                if "text/html" in content_type:
                     # EU pool: Next.js app with embedded JSON
                     html = await response.text()
                     _LOGGER.debug(f"Got HTML response from {self.pool_url}, length: {len(html)}")
@@ -136,12 +136,10 @@ class CKPoolAPI:
                         result = self._parse_ckpool_data(data)
                         _LOGGER.debug(f"Parsed result from HTML: {result}")
                         return result
-                    else:
-                        _LOGGER.error(f"Failed to extract JSON from HTML for {btc_address}")
-                        return None
-                else:
-                    _LOGGER.error(f"Unexpected content type: {content_type}")
+                    _LOGGER.error(f"Failed to extract JSON from HTML for {btc_address}")
                     return None
+                _LOGGER.error(f"Unexpected content type: {content_type}")
+                return None
 
         except Exception as err:
             _LOGGER.error(f"Error fetching CKPool user stats for {btc_address}: {err}")
@@ -168,8 +166,8 @@ class CKPoolAPI:
                 workers_count = len(worker_ids)
 
             # Extract bestShare (JavaScript number, not quoted) and bestEver (quoted string)
-            bestShare = re.search(r'\\"bestShare\\":(\d+\.?\d*)', html)
-            bestEver = re.search(r'\\"bestEver\\":\\"(\d+)', html)
+            best_share = re.search(r'\\"bestShare\\":(\d+\.?\d*)', html)
+            best_ever = re.search(r'\\"bestEver\\":\\"(\d+)', html)
 
             if hashrate1m:
                 data = {
@@ -177,14 +175,13 @@ class CKPoolAPI:
                     "hashrate1hr": int(hashrate1hr.group(1)) if hashrate1hr else 0,
                     "hashrate1d": int(hashrate1d.group(1)) if hashrate1d else 0,
                     "workers": workers_count,
-                    "bestshare": float(bestShare.group(1)) if bestShare else 0,
-                    "bestever": float(bestEver.group(1)) if bestEver else 0,
+                    "bestshare": float(best_share.group(1)) if best_share else 0,
+                    "bestever": float(best_ever.group(1)) if best_ever else 0,
                 }
                 _LOGGER.debug(f"Extracted fields from escaped HTML: {data}")
                 return data
         except (ValueError, AttributeError) as e:
             _LOGGER.debug(f"Field extraction error: {e}")
-            pass
 
         _LOGGER.warning("Failed to extract any mining data from HTML")
         return None
@@ -213,9 +210,8 @@ class CKPoolAPI:
                         # Convert to GH/s
                         multipliers = {"K": 1e-6, "M": 1e-3, "G": 1, "T": 1e3, "P": 1e6}
                         return round(value * multipliers.get(unit, 1), 2)
-                    else:
-                        # Plain number as string
-                        return round(float(hashrate_value), 2)
+                    # Plain number as string
+                    return round(float(hashrate_value), 2)
 
                 return 0.0
             except (ValueError, IndexError, TypeError):

@@ -1,7 +1,7 @@
 """Storage helper for CryptoInfo."""
 
-from homeassistant.helpers.storage import Store
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 STORAGE_VERSION = 1
 STORAGE_KEY = "cryptoinfo_data"
