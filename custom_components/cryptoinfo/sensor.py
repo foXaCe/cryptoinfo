@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -135,7 +135,6 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     __slots__ = ("_id_name", "cryptocurrency_id", "currency_name", "multiplier")
 
     _attr_has_entity_name = True
-    _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:bitcoin"
     _attr_suggested_display_precision = 2
