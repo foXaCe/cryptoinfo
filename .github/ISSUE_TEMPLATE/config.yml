@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/heyajohnny/cryptoinfo
+    url: https://github.com/foXaCe/cryptoinfo
     about: Read the documentation before opening an issue
-  - name: Discussions
-    url: https://github.com/heyajohnny/cryptoinfo/discussions
-    about: Ask questions and discuss features
+  - name: Home Assistant Community
+    url: https://community.home-assistant.io/
+    about: Ask questions and discuss with the Home Assistant community

@@ -9,15 +9,6 @@
 ## Changements majeurs pour la mise à jour de v0.x.x vers v1.x.x
 Si vous venez de mettre à jour de v0.x.x vers v1.x.x, veuillez supprimer le capteur cryptoinfo de votre configuration.yaml et suivre [Étape d'installation 2](#étape-dinstallation-2)
 
-Si vous appréciez mon travail, offrez-moi un café ou faites un don en cryptomonnaies. Cela me gardera éveillé, endormi, ou je ne sais quoi :wink:
-
-<a href="https://www.buymeacoffee.com/1v3ckWD" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"></a><details>
-  <summary>Adresses de cryptomonnaies</summary>
-<img width="164px" alt="xmr" src="https://user-images.githubusercontent.com/20553716/210132784-63613225-d9da-427d-a20b-e1003045a1f4.png">
-<img width="164px" alt="btc" src="https://user-images.githubusercontent.com/20553716/210132426-6c58d8d1-b351-4ae7-9b61-cd5511cdb4ed.png">
-<img width="164px" alt="ada" src="https://user-images.githubusercontent.com/20553716/210132510-b1106b55-c9e3-413d-b8e0-26ba4e24a5de.png">
-</details>
-
 Si vous avez besoin de fonctionnalités plus avancées que celles offertes par ce projet, consultez [Cryptoinfo Advanced](https://github.com/TheHolyRoger/hass-cryptoinfo)
 
 ### Étape d'installation 1 :
@@ -111,5 +102,5 @@ Cet exemple combine la valeur totale de tous vos capteurs en un seul capteur de 
 L'API publique de CoinGecko a une <a href='https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan' target='_blank'>limite de taux</a> de 5 à 15 appels par minute, selon les conditions d'utilisation mondiales.
 
 ### Problèmes et nouvelles fonctionnalités
-S'il y a des problèmes, veuillez créer un ticket dans https://github.com/heyajohnny/cryptoinfo/issues
-Si vous souhaitez ajouter de nouvelles fonctionnalités, veuillez créer un ticket avec une description de la nouvelle fonctionnalité souhaitée dans : https://github.com/heyajohnny/cryptoinfo/issues
+S'il y a des problèmes, veuillez créer un ticket dans https://github.com/foXaCe/cryptoinfo/issues
+Si vous souhaitez ajouter de nouvelles fonctionnalités, veuillez créer un ticket avec une description de la nouvelle fonctionnalité souhaitée dans : https://github.com/foXaCe/cryptoinfo/issues

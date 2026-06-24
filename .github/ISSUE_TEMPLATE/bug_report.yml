@@ -14,7 +14,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: I have read the [documentation](https://github.com/heyajohnny/cryptoinfo)
+        - label: I have read the [documentation](https://github.com/foXaCe/cryptoinfo)
           required: true
         - label: I have searched for existing issues
           required: true

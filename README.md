@@ -1,5 +1,12 @@
 ## Home Assistant sensor component for cryptocurrencies
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
+
+[![GitHub Release][releases-shield]][releases]
+[![License][license-shield]](LICENSE)
+[![hacs][hacsbadge]][hacs]
+[![CI][ci-shield]][ci]
+[![hassfest][hassfest-shield]][hassfest]
+[![Maintenance][maintenance-shield]][maintenance]
+[![Project Maintenance][maintainer-shield]][maintainer]
 
 ![icon_mini](https://github.com/user-attachments/assets/328f93d8-6ea7-4877-bc31-1c5b33c4583a)
 ### Powered by CoinGecko API
@@ -8,15 +15,6 @@
 
 ## Breaking changes for upgrading from v0.x.x to v1.x.x
 If you've just updated from v0.x.x to v1.x.x please remove the cryptoinfo sensor from your configuration.yaml and follow [Installation step 2](#installation-step-2)
-
-If you like my work, please buy me a coffee or donate some crypto currencies. This will keep me awake, asleep, or whatever :wink:
-
-<a href="https://www.buymeacoffee.com/1v3ckWD" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"></a><details>
-  <summary>Crypto currency addresses</summary>
-<img width="164px" alt="xmr" src="https://user-images.githubusercontent.com/20553716/210132784-63613225-d9da-427d-a20b-e1003045a1f4.png">
-<img width="164px" alt="btc" src="https://user-images.githubusercontent.com/20553716/210132426-6c58d8d1-b351-4ae7-9b61-cd5511cdb4ed.png">
-<img width="164px" alt="ada" src="https://user-images.githubusercontent.com/20553716/210132510-b1106b55-c9e3-413d-b8e0-26ba4e24a5de.png">
-</details>
 
 If you need more advanced features than this project offers, see [Cryptoinfo Advanced](https://github.com/TheHolyRoger/hass-cryptoinfo)
 
@@ -111,5 +109,24 @@ This example combines the total value of all your sensors into this 1 template s
 CoinGecko’s Public API has a <a href='https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan' target='_blank'>rate limit</a> of 5 to 15 calls per minute, depending on usage conditions worldwide.
 
 ### Issues and new functionality
-If there are any problems, please create an issue in https://github.com/heyajohnny/cryptoinfo/issues
-If you want new functionality added, please create an issue with a description of the new functionality that you want in: https://github.com/heyajohnny/cryptoinfo/issues
+If there are any problems, please create an issue in https://github.com/foXaCe/cryptoinfo/issues
+If you want new functionality added, please create an issue with a description of the new functionality that you want in: https://github.com/foXaCe/cryptoinfo/issues
+
+## Credits
+
+This integration is a maintained fork of [heyajohnny/cryptoinfo](https://github.com/heyajohnny/cryptoinfo) by [@heyajohnny](https://github.com/heyajohnny). Powered by the [CoinGecko API](https://www.coingecko.com/en/api).
+
+<!-- Badges -->
+[releases-shield]: https://img.shields.io/github/v/release/foXaCe/cryptoinfo?style=for-the-badge
+[releases]: https://github.com/foXaCe/cryptoinfo/releases
+[license-shield]: https://img.shields.io/github/license/foXaCe/cryptoinfo?style=for-the-badge
+[hacs]: https://github.com/hacs/integration
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/ci.yml?branch=master&style=for-the-badge&label=CI
+[ci]: https://github.com/foXaCe/cryptoinfo/actions/workflows/ci.yml
+[hassfest-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/hassfest.yml?branch=master&style=for-the-badge&label=hassfest
+[hassfest]: https://github.com/foXaCe/cryptoinfo/actions/workflows/hassfest.yml
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg?style=for-the-badge
+[maintenance]: https://github.com/foXaCe/cryptoinfo
+[maintainer-shield]: https://img.shields.io/badge/maintainer-%40foXaCe-blue.svg?style=for-the-badge
+[maintainer]: https://github.com/foXaCe
