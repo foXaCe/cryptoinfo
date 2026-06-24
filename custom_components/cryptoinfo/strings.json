@@ -1,0 +1,196 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Select sensor type",
+                "description": "{info}",
+                "data": {
+                    "sensor_type": "Sensor type"
+                },
+                "data_description": {
+                    "sensor_type": "Choose the type of sensor you want to create"
+                }
+            },
+            "price_search": {
+                "title": "Search cryptocurrencies",
+                "description": "{info}",
+                "data": {
+                    "search_query": "Search (optional)"
+                },
+                "data_description": {
+                    "search_query": "Enter a cryptocurrency name, symbol, or ID to search. Example: bitcoin, btc, ethereum"
+                }
+            },
+            "select_crypto": {
+                "title": "Select cryptocurrencies",
+                "description": "{info}",
+                "data": {
+                    "selected_cryptos": "Cryptocurrencies"
+                },
+                "data_description": {
+                    "selected_cryptos": "Select the cryptocurrencies you want to track"
+                }
+            },
+            "configure": {
+                "title": "Configure sensor",
+                "description": "Selected: {selected_cryptos}",
+                "data": {
+                    "id": "Identifier",
+                    "currency_name": "Currency",
+                    "unit_of_measurement": "Unit of measurement",
+                    "multipliers": "Multipliers",
+                    "update_frequency": "Update frequency (minutes)",
+                    "min_time_between_requests": "Minimum time between requests (minutes)"
+                },
+                "data_description": {
+                    "id": "Unique name for this sensor (e.g., 'My Wallet', 'Trading Portfolio').",
+                    "currency_name": "Currency to display prices in (usd, eur, gbp, etc.).",
+                    "unit_of_measurement": "Currency symbol to display (e.g., $, €, £). Leave empty for none.",
+                    "multipliers": "Amount of each cryptocurrency you own, separated by commas. Must match the number of selected cryptocurrencies.",
+                    "update_frequency": "How often to refresh prices (minutes). Minimum 1 minute.",
+                    "min_time_between_requests": "Minimum delay between API requests (minutes). Shared across all sensors."
+                }
+            },
+            "select_mining_type": {
+                "title": "Select mining sensor type",
+                "description": "{info}",
+                "data": {
+                    "sensor_type": "Sensor type"
+                },
+                "data_description": {
+                    "sensor_type": "Choose the type of mining sensor to add"
+                }
+            },
+            "mining_config": {
+                "title": "Configure mining sensor",
+                "description": "{info}",
+                "data": {
+                    "id": "Identifier",
+                    "btc_address": "Bitcoin address",
+                    "ckpool_region": "Pool region",
+                    "update_frequency": "Update frequency (minutes)"
+                },
+                "data_description": {
+                    "id": "Unique name for this sensor.",
+                    "btc_address": "Your Bitcoin wallet address for mining stats.",
+                    "ckpool_region": "Select the CKPool region to use.",
+                    "update_frequency": "How often to refresh stats (minutes)."
+                }
+            },
+            "reconfigure": {
+                "title": "Reconfigure sensor",
+                "description": "{info}",
+                "data": {
+                    "action": "Action"
+                },
+                "data_description": {
+                    "action": "Choose an action: modify current sensor or add a new one"
+                }
+            },
+            "reconfigure_price": {
+                "title": "Search cryptocurrencies",
+                "description": "{info}",
+                "data": {
+                    "search_query": "Search (optional)"
+                },
+                "data_description": {
+                    "search_query": "Enter a cryptocurrency name, symbol, or ID to search"
+                }
+            },
+            "reconfigure_select": {
+                "title": "Select cryptocurrencies",
+                "description": "{info}",
+                "data": {
+                    "selected_cryptos": "Cryptocurrencies"
+                },
+                "data_description": {
+                    "selected_cryptos": "Select the cryptocurrencies you want to track"
+                }
+            },
+            "reconfigure_configure": {
+                "title": "Update configuration",
+                "description": "Selected: {selected_cryptos}",
+                "data": {
+                    "id": "Identifier",
+                    "currency_name": "Currency",
+                    "unit_of_measurement": "Unit of measurement",
+                    "multipliers": "Multipliers",
+                    "update_frequency": "Update frequency (minutes)",
+                    "min_time_between_requests": "Minimum time between requests (minutes)"
+                },
+                "data_description": {
+                    "id": "Unique name for this sensor.",
+                    "currency_name": "Currency to display prices in.",
+                    "unit_of_measurement": "Currency symbol to display.",
+                    "multipliers": "Amount of each cryptocurrency, separated by commas.",
+                    "update_frequency": "How often to refresh prices (minutes).",
+                    "min_time_between_requests": "Minimum delay between API requests (minutes)."
+                }
+            },
+            "reconfigure_mining": {
+                "title": "Update mining configuration",
+                "description": "{info}",
+                "data": {
+                    "id": "Identifier",
+                    "btc_address": "Bitcoin address",
+                    "ckpool_region": "Pool region",
+                    "update_frequency": "Update frequency (minutes)"
+                },
+                "data_description": {
+                    "id": "Unique name for this sensor.",
+                    "btc_address": "Your Bitcoin wallet address.",
+                    "ckpool_region": "CKPool region.",
+                    "update_frequency": "How often to refresh stats (minutes)."
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reconnect to CoinGecko",
+                "description": "{info}"
+            }
+        },
+        "abort": {
+            "already_configured": "A sensor with this identifier already exists",
+            "reconfigure_successful": "Configuration updated successfully",
+            "reauth_successful": "Reconnection successful",
+            "entry_not_found": "Configuration entry not found"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to API",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unknown error occurred",
+            "mismatch_values": "Number of cryptocurrencies ({crypto_count}) does not match multipliers ({multiplier_count})",
+            "invalid_cryptocurrency_ids": "Invalid cryptocurrency IDs: {invalid_ids}",
+            "no_crypto_selected": "Please select at least one cryptocurrency",
+            "no_results": "No cryptocurrencies found. Try a different search term.",
+            "api_error": "Unable to connect to CoinGecko API",
+            "btc_address_required": "Bitcoin address is required"
+        }
+    },
+    "exceptions": {
+        "api_error": {
+            "message": "Error communicating with {api_name}: {error}"
+        },
+        "rate_limited": {
+            "message": "Rate limited by {api_name}. Please wait before retrying."
+        },
+        "connection_error": {
+            "message": "Unable to connect to {api_name}. Check your network connection."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "crypto_price": {
+                "name": "{cryptocurrency} Price"
+            },
+            "btc_network": {
+                "name": "Bitcoin Network"
+            },
+            "btc_mempool": {
+                "name": "Bitcoin Mempool"
+            },
+            "ckpool_mining": {
+                "name": "CKPool Mining"
+            }
+        }
+    }
+}
