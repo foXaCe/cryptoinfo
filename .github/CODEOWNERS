@@ -2,10 +2,10 @@
 # These users will be automatically requested for review
 
 # Default owner for everything
-* @heyajohnny @foXaCe
+* @foXaCe
 
 # Custom components
-/custom_components/ @heyajohnny @foXaCe
+/custom_components/ @foXaCe
 
 # GitHub workflows
 /.github/ @foXaCe
