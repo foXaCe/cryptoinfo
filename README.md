@@ -122,9 +122,9 @@ This integration is a maintained fork of [heyajohnny/cryptoinfo](https://github.
 [license-shield]: https://img.shields.io/github/license/foXaCe/cryptoinfo?style=for-the-badge
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/ci.yml?branch=master&style=for-the-badge&label=CI
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/ci.yml?branch=main&style=for-the-badge&label=CI
 [ci]: https://github.com/foXaCe/cryptoinfo/actions/workflows/ci.yml
-[hassfest-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/hassfest.yml?branch=master&style=for-the-badge&label=hassfest
+[hassfest-shield]: https://img.shields.io/github/actions/workflow/status/foXaCe/cryptoinfo/hassfest.yml?branch=main&style=for-the-badge&label=hassfest
 [hassfest]: https://github.com/foXaCe/cryptoinfo/actions/workflows/hassfest.yml
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg?style=for-the-badge
 [maintenance]: https://github.com/foXaCe/cryptoinfo
