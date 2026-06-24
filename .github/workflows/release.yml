@@ -59,8 +59,8 @@ jobs:
 
       - name: Create release archive
         run: |
-          cd custom_components
-          zip -r ../cryptoinfo.zip cryptoinfo
+          cd custom_components/cryptoinfo
+          zip -r ../../cryptoinfo.zip . -x '*.pyc' '*/__pycache__/*'
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
