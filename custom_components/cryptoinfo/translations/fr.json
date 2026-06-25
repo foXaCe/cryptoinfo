@@ -2,8 +2,18 @@
     "config": {
         "step": {
             "user": {
+                "title": "Sélectionner le type de capteur",
+                "description": "{info}",
+                "data": {
+                    "sensor_type": "Type de capteur"
+                },
+                "data_description": {
+                    "sensor_type": "Choisissez le type de capteur à créer"
+                }
+            },
+            "price_search": {
                 "title": "Rechercher des cryptomonnaies",
-                "description": "Recherchez des cryptomonnaies par nom, symbole ou ID. Laissez vide pour parcourir le top 100.",
+                "description": "{info}",
                 "data": {
                     "search_query": "Recherche (optionnel)"
                 },
@@ -13,7 +23,7 @@
             },
             "select_crypto": {
                 "title": "Sélectionner des cryptomonnaies",
-                "description": "Sélectionnez une ou plusieurs cryptomonnaies à suivre.",
+                "description": "{info}",
                 "data": {
                     "selected_cryptos": "Cryptomonnaies"
                 },
@@ -23,17 +33,17 @@
             },
             "configure": {
                 "title": "Configurer le capteur",
-                "description": "Configurez votre capteur de cryptomonnaies. Sélectionné : {selected_cryptos}",
+                "description": "Sélectionné : {selected_cryptos}",
                 "data": {
                     "id": "Identifiant",
-                    "currency_name": "Nom de la devise",
+                    "currency_name": "Devise",
                     "unit_of_measurement": "Unité de mesure",
                     "multipliers": "Multiplicateurs",
                     "update_frequency": "Fréquence de mise à jour (minutes)",
                     "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
                 },
                 "data_description": {
-                    "id": "Nom unique pour ce capteur (ex : 'Mon Portefeuille', 'Trading').",
+                    "id": "Nom unique pour ce capteur (ex : « Mon Portefeuille », « Trading »).",
                     "currency_name": "Devise d'affichage des prix (usd, eur, gbp, etc.).",
                     "unit_of_measurement": "Symbole de devise à afficher (ex : $, €, £). Laissez vide pour aucun.",
                     "multipliers": "Quantité de chaque cryptomonnaie possédée, séparées par des virgules. Doit correspondre au nombre de cryptos sélectionnées.",
@@ -41,19 +51,55 @@
                     "min_time_between_requests": "Délai minimum entre les requêtes API (minutes). Partagé entre tous les capteurs."
                 }
             },
+            "select_mining_type": {
+                "title": "Sélectionner le type de capteur de minage",
+                "description": "{info}",
+                "data": {
+                    "sensor_type": "Type de capteur"
+                },
+                "data_description": {
+                    "sensor_type": "Choisissez le type de capteur de minage à ajouter"
+                }
+            },
+            "mining_config": {
+                "title": "Configurer le capteur de minage",
+                "description": "{info}",
+                "data": {
+                    "id": "Identifiant",
+                    "btc_address": "Adresse Bitcoin",
+                    "ckpool_region": "Région du pool",
+                    "update_frequency": "Fréquence de mise à jour (minutes)"
+                },
+                "data_description": {
+                    "id": "Nom unique pour ce capteur.",
+                    "btc_address": "Votre adresse de portefeuille Bitcoin pour les statistiques de minage.",
+                    "ckpool_region": "Sélectionnez la région CKPool à utiliser.",
+                    "update_frequency": "Fréquence de rafraîchissement des statistiques (minutes)."
+                }
+            },
             "reconfigure": {
+                "title": "Reconfigurer le capteur",
+                "description": "{info}",
+                "data": {
+                    "action": "Action"
+                },
+                "data_description": {
+                    "action": "Choisissez une action : modifier le capteur actuel ou en ajouter un nouveau"
+                }
+            },
+            "reconfigure_price": {
                 "title": "Rechercher des cryptomonnaies",
-                "description": "Recherchez des cryptomonnaies à ajouter ou modifier. Laissez vide pour parcourir le top 100.",
+                "description": "{info}",
                 "data": {
                     "search_query": "Recherche (optionnel)"
                 },
                 "data_description": {
-                    "search_query": "Entrez un nom, symbole ou ID de cryptomonnaie. Exemple : bitcoin, btc, ethereum"
+                    "search_query": "Entrez un nom, symbole ou ID de cryptomonnaie"
                 }
             },
             "reconfigure_select": {
                 "title": "Sélectionner des cryptomonnaies",
-                "description": "Sélectionnez les cryptomonnaies à suivre. Votre sélection actuelle sera pré-sélectionnée.",
+                "description": "{info}",
                 "data": {
                     "selected_cryptos": "Cryptomonnaies"
                 },
@@ -62,36 +108,96 @@
                 }
             },
             "reconfigure_configure": {
-                "title": "Mettre à jour la configuration du capteur",
-                "description": "Configurez votre capteur de cryptomonnaies. Sélectionné : {selected_cryptos}",
+                "title": "Mettre à jour la configuration",
+                "description": "Sélectionné : {selected_cryptos}",
                 "data": {
                     "id": "Identifiant",
-                    "currency_name": "Nom de la devise",
+                    "currency_name": "Devise",
                     "unit_of_measurement": "Unité de mesure",
                     "multipliers": "Multiplicateurs",
                     "update_frequency": "Fréquence de mise à jour (minutes)",
                     "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
                 },
                 "data_description": {
-                    "id": "Nom unique pour ce capteur (ex : 'Mon Portefeuille', 'Trading').",
-                    "currency_name": "Devise d'affichage des prix (usd, eur, gbp, etc.).",
-                    "unit_of_measurement": "Symbole de devise à afficher (ex : $, €, £). Laissez vide pour aucun.",
-                    "multipliers": "Quantité de chaque cryptomonnaie possédée, séparées par des virgules. Doit correspondre au nombre de cryptos sélectionnées.",
-                    "update_frequency": "Fréquence de rafraîchissement des prix (minutes). Minimum 1 minute.",
-                    "min_time_between_requests": "Délai minimum entre les requêtes API (minutes). Partagé entre tous les capteurs."
+                    "id": "Nom unique pour ce capteur.",
+                    "currency_name": "Devise d'affichage des prix.",
+                    "unit_of_measurement": "Symbole de devise à afficher.",
+                    "multipliers": "Quantité de chaque cryptomonnaie, séparées par des virgules.",
+                    "update_frequency": "Fréquence de rafraîchissement des prix (minutes).",
+                    "min_time_between_requests": "Délai minimum entre les requêtes API (minutes)."
                 }
+            },
+            "reconfigure_mining": {
+                "title": "Mettre à jour la configuration du minage",
+                "description": "{info}",
+                "data": {
+                    "id": "Identifiant",
+                    "btc_address": "Adresse Bitcoin",
+                    "ckpool_region": "Région du pool",
+                    "update_frequency": "Fréquence de mise à jour (minutes)"
+                },
+                "data_description": {
+                    "id": "Nom unique pour ce capteur.",
+                    "btc_address": "Votre adresse de portefeuille Bitcoin.",
+                    "ckpool_region": "Région CKPool.",
+                    "update_frequency": "Fréquence de rafraîchissement des statistiques (minutes)."
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reconnexion à CoinGecko",
+                "description": "{info}"
             }
         },
         "abort": {
-            "already_configured": "Un capteur avec ce nom (Identifiant) existe déjà",
-            "reconfigure_successful": "La reconfiguration a réussi"
+            "already_configured": "Un capteur avec cet identifiant existe déjà",
+            "reconfigure_successful": "Configuration mise à jour avec succès",
+            "reauth_successful": "Reconnexion réussie",
+            "entry_not_found": "Entrée de configuration introuvable"
         },
         "error": {
-            "cannot_connect": "Erreur : Impossible de se connecter",
-            "mismatch_values": "Le nombre d'ID de cryptomonnaies ({crypto_count}) ne correspond pas au nombre de multiplicateurs ({multiplier_count})",
-            "invalid_cryptocurrency_ids": "Les ID de cryptomonnaies suivants ne sont pas valides dans CoinGecko : {invalid_ids}.",
+            "cannot_connect": "Échec de la connexion à l'API",
+            "invalid_auth": "Authentification invalide",
+            "unknown": "Une erreur inconnue est survenue",
+            "mismatch_values": "Le nombre de cryptomonnaies ({crypto_count}) ne correspond pas au nombre de multiplicateurs ({multiplier_count})",
+            "invalid_cryptocurrency_ids": "ID de cryptomonnaies invalides : {invalid_ids}",
             "no_crypto_selected": "Veuillez sélectionner au moins une cryptomonnaie",
-            "no_results": "Aucune cryptomonnaie trouvée correspondant à votre recherche. Veuillez essayer un autre terme."
+            "no_results": "Aucune cryptomonnaie trouvée. Essayez un autre terme de recherche.",
+            "api_error": "Impossible de se connecter à l'API CoinGecko",
+            "btc_address_required": "L'adresse Bitcoin est requise"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Options du capteur",
+                "description": "{info}",
+                "data": {
+                    "update_frequency": "Fréquence de mise à jour (minutes)",
+                    "min_time_between_requests": "Temps minimum entre les requêtes (minutes)"
+                },
+                "data_description": {
+                    "update_frequency": "Fréquence de rafraîchissement des données (minutes).",
+                    "min_time_between_requests": "Délai minimum entre les requêtes API (minutes). Partagé entre tous les capteurs de prix."
+                }
+            }
+        }
+    },
+    "exceptions": {
+        "api_error": {
+            "message": "Erreur de communication avec {api_name} : {error}"
+        },
+        "rate_limited": {
+            "message": "Limite de débit atteinte sur {api_name}. Veuillez patienter avant de réessayer."
+        },
+        "connection_error": {
+            "message": "Impossible de se connecter à {api_name}. Vérifiez votre connexion réseau."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "crypto_price": {
+                "name": "{cryptocurrency} {currency}"
+            }
         }
     }
 }

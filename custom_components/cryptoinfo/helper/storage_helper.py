@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 STORAGE_VERSION = 1
 STORAGE_KEY = "cryptoinfo_data"
 
+# Default minimum delay (minutes) between CoinGecko API requests, shared by all sensors.
+DEFAULT_MIN_TIME_BETWEEN_REQUESTS = 0.25
+
 
 class CryptoInfoStore:
     """Class to hold CryptoInfo data."""
@@ -22,7 +25,7 @@ class CryptoInfoStore:
         """Initialize the store."""
         self.hass = hass
         self.store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        self.data: dict[str, Any] = {"min_time_between_requests": 1.0}
+        self.data: dict[str, Any] = {"min_time_between_requests": DEFAULT_MIN_TIME_BETWEEN_REQUESTS}
 
     async def async_load(self) -> None:
         """Load the data from storage."""

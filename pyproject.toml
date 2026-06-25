@@ -100,42 +100,24 @@ combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.13"
+strict = true
 show_error_codes = true
 warn_unreachable = true
 ignore_missing_imports = true
 exclude = ["^.venv/"]
 explicit_package_bases = true
 mypy_path = "."
-# Relaxed settings for legacy code
-strict = false
-# Ignore errors for legacy code patterns
-disable_error_code = ["call-arg", "var-annotated", "assignment", "dict-item", "arg-type", "type-arg"]
-disallow_untyped_calls = false
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-no_implicit_optional = false
-warn_unused_ignores = false
-disallow_subclassing_any = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
 warn_unreachable = false
 
 [[tool.mypy.overrides]]
 module = "homeassistant.*"
 ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "custom_components.cryptoinfo.*"
-# Very relaxed for legacy integration code
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-disallow_subclassing_any = false
-# Ignore errors that occur due to missing HA stubs and legacy code patterns
-disable_error_code = ["call-arg", "var-annotated", "assignment", "dict-item", "arg-type"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -145,7 +127,7 @@ addopts = [
     "--cov=custom_components.cryptoinfo",
     "--cov-report=term-missing",
     "--cov-report=xml",
-    "--cov-fail-under=10",
+    "--cov-fail-under=95",
 ]
 
 [tool.coverage.run]

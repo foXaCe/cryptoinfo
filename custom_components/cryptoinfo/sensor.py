@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const.const import (
     ATTR_1H_CHANGE,
@@ -53,9 +52,15 @@ from .const.const import (
 from .coordinator import CryptoDataCoordinator
 
 if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
     from .const.const import CryptoInfoConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+# Coordinator-driven entities do not perform their own I/O.
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -64,11 +69,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Cryptoinfo sensor entities."""
-    config = entry.data
+    # Options take precedence over the original config data.
+    config: dict[str, Any] = {**entry.data, **entry.options}
     sensor_type = config.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
 
     # Route to mining sensors if applicable
-    if sensor_type in [SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING]:
+    if sensor_type in (SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING):
         from .mining_sensor import async_setup_mining_sensors
 
         await async_setup_mining_sensors(hass, config, async_add_entities)
@@ -77,21 +83,25 @@ async def async_setup_entry(
     # Price sensor setup
     _LOGGER.debug("Setting up Cryptoinfo price sensors for entry %s", entry.entry_id)
 
+    shared = entry.runtime_data.shared_data
+
     id_name = (config.get(CONF_ID) or "").strip()
     cryptocurrency_ids = config.get(CONF_CRYPTOCURRENCY_IDS, "").lower().strip()
     currency_name = config.get(CONF_CURRENCY_NAME, "").strip()
     unit_of_measurement = (config.get(CONF_UNIT_OF_MEASUREMENT) or "").strip()
     multipliers = config.get(CONF_MULTIPLIERS, "1").strip()
     update_frequency = timedelta(minutes=float(config.get(CONF_UPDATE_FREQUENCY, 5)))
-    min_time_between_requests = timedelta(minutes=float(config.get(CONF_MIN_TIME_BETWEEN_REQUESTS, 0.25)))
+    min_time = float(config.get(CONF_MIN_TIME_BETWEEN_REQUESTS, shared.min_time_between_requests))
 
-    # Create coordinator
+    # Apply the (shared) minimum delay between CoinGecko requests.
+    shared.api.min_request_interval = min_time * 60
+
     coordinator = CryptoDataCoordinator(
         hass,
+        shared.api,
         cryptocurrency_ids,
         currency_name,
         update_frequency,
-        min_time_between_requests,
         id_name,
     )
 
@@ -103,7 +113,7 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
 
     # Create entities
-    crypto_list = [crypto.strip() for crypto in cryptocurrency_ids.split(",")]
+    crypto_list = [crypto.strip() for crypto in cryptocurrency_ids.split(",") if crypto.strip()]
     multipliers_list = [mult.strip() for mult in multipliers.split(",")]
 
     if len(crypto_list) != len(multipliers_list):
@@ -132,11 +142,9 @@ async def async_setup_entry(
 class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     """Cryptocurrency price sensor."""
 
-    __slots__ = ("_id_name", "cryptocurrency_id", "currency_name", "multiplier")
-
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:bitcoin"
+    _attr_translation_key = "crypto_price"
     _attr_suggested_display_precision = 2
 
     def __init__(
@@ -157,14 +165,12 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
 
         # Entity attributes
         self._attr_native_unit_of_measurement = unit_of_measurement or None
-        self._attr_translation_key = "crypto_price"
+        self._attr_translation_placeholders = {
+            "cryptocurrency": cryptocurrency_id.capitalize(),
+            "currency": currency_name.upper(),
+        }
 
-        # Entity naming
-        self._attr_name = f"{cryptocurrency_id.capitalize()} {currency_name.upper()}"
-        if id_name:
-            self._attr_name = f"{id_name} {self._attr_name}"
-
-        # Unique ID
+        # Unique ID (stable across renames; currency + id_name keep it unique)
         self._attr_unique_id = f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
 
         # Device info (enables device grouping in HA)
@@ -178,11 +184,11 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
-        if not self.coordinator.last_update_success:
-            return False
-        if not self.coordinator.data:
-            return False
-        return self.cryptocurrency_id in self.coordinator.data
+        return bool(
+            self.coordinator.last_update_success
+            and self.coordinator.data
+            and self.cryptocurrency_id in self.coordinator.data
+        )
 
     @property
     def native_value(self) -> float | None:
@@ -200,15 +206,12 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
-        if not self.coordinator.data:
-            return self._empty_attributes()
-
-        data = self.coordinator.data.get(self.cryptocurrency_id)
+        data = self.coordinator.data.get(self.cryptocurrency_id) if self.coordinator.data else None
         if not data:
             return self._empty_attributes()
 
         return {
-            ATTR_LAST_UPDATE: datetime.now().strftime("%d-%m-%Y %H:%M"),
+            ATTR_LAST_UPDATE: dt_util.now().strftime("%d-%m-%Y %H:%M"),
             ATTR_CRYPTOCURRENCY_ID: self.cryptocurrency_id,
             ATTR_CRYPTOCURRENCY_NAME: data.get("name"),
             ATTR_CRYPTOCURRENCY_SYMBOL: data.get("symbol"),
@@ -235,7 +238,7 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
     def _empty_attributes(self) -> dict[str, Any]:
         """Return empty attributes when no data available."""
         return {
-            ATTR_LAST_UPDATE: datetime.now().strftime("%d-%m-%Y %H:%M"),
+            ATTR_LAST_UPDATE: dt_util.now().strftime("%d-%m-%Y %H:%M"),
             ATTR_CRYPTOCURRENCY_NAME: None,
             ATTR_CURRENCY_NAME: None,
             ATTR_BASE_PRICE: None,

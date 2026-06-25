@@ -111,7 +111,7 @@ class BlockchainAPI:
     # API METHODS
     # =========================================================================
 
-    async def get_network_stats(self) -> dict | None:
+    async def get_network_stats(self) -> dict[str, Any] | None:
         """Fetch Bitcoin network statistics from mempool.space using parallel requests."""
         try:
             # Parallel requests for better performance
@@ -156,7 +156,7 @@ class BlockchainAPI:
             _LOGGER.error("Error fetching Bitcoin network stats: %s", err)
             return None
 
-    async def get_mempool_stats(self) -> dict | None:
+    async def get_mempool_stats(self) -> dict[str, Any] | None:
         """Fetch Bitcoin mempool statistics from mempool.space using parallel requests."""
         try:
             # Parallel requests for better performance
@@ -229,7 +229,7 @@ class CKPoolAPI:
                 self._consecutive_failures,
             )
 
-    async def get_user_stats(self, btc_address: str) -> dict | None:
+    async def get_user_stats(self, btc_address: str) -> dict[str, Any] | None:
         """Fetch user mining statistics from CKPool with retry."""
         self._check_circuit_breaker()
 
@@ -303,7 +303,7 @@ class CKPoolAPI:
         _LOGGER.error("Error fetching CKPool user stats for %s: %s", btc_address, last_exception)
         return None
 
-    def _extract_json_from_html(self, html: str) -> dict | None:
+    def _extract_json_from_html(self, html: str) -> dict[str, Any] | None:
         """Extract JSON data from Next.js HTML page."""
         # EU pool embeds JSON in the HTML within script tags, escaped as JavaScript strings
         try:
@@ -341,7 +341,7 @@ class CKPoolAPI:
         _LOGGER.warning("Failed to extract any mining data from HTML")
         return None
 
-    def _parse_ckpool_data(self, data: dict) -> dict:
+    def _parse_ckpool_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Parse CKPool JSON data to extract mining statistics."""
 
         def convert_hashrate(hashrate_value: str | int | float | None) -> float:

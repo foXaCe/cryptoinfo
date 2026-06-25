@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .storage_helper import CryptoInfoStore
+from .coingecko_api import CoinGeckoAPI
+from .storage_helper import DEFAULT_MIN_TIME_BETWEEN_REQUESTS, CryptoInfoStore
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -13,18 +14,21 @@ if TYPE_CHECKING:
 class CryptoInfoData:
     """Manages shared Cryptoinfo data across config entries."""
 
-    __slots__ = ("_hass", "_min_time_between_requests", "store")
+    __slots__ = ("_hass", "_min_time_between_requests", "api", "store")
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the data manager."""
         self._hass = hass
         self.store = CryptoInfoStore(hass)
-        self._min_time_between_requests = 0.25
+        self.api = CoinGeckoAPI(hass)
+        self._min_time_between_requests = DEFAULT_MIN_TIME_BETWEEN_REQUESTS
 
     async def async_initialize(self) -> None:
         """Initialize the data from storage."""
         await self.store.async_load()
-        self._min_time_between_requests = self.store.data.get("min_time_between_requests", 0.25)
+        self._min_time_between_requests = self.store.data.get(
+            "min_time_between_requests", DEFAULT_MIN_TIME_BETWEEN_REQUESTS
+        )
 
     @property
     def min_time_between_requests(self) -> float:

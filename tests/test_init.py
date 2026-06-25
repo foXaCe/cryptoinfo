@@ -1,83 +1,80 @@
 """Test Cryptoinfo integration initialization."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
+
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import (
-    DOMAIN,
-    CryptoInfoRuntimeData,
-)
-
-
-async def test_domain_constant() -> None:
-    """Test that the domain constant is correctly defined."""
-    assert DOMAIN == "cryptoinfo"
+from custom_components.cryptoinfo import async_migrate_entry
+from custom_components.cryptoinfo.const.const import DOMAIN, CryptoInfoRuntimeData
+from custom_components.cryptoinfo.exceptions import CryptoInfoConnectionError
 
 
-async def test_async_setup_entry_creates_runtime_data(
+async def test_setup_and_unload(
     hass: HomeAssistant,
-    mock_coingecko_api: AsyncMock,
+    price_config_entry: MockConfigEntry,
+    mock_coingecko: AiohttpClientMocker,
 ) -> None:
-    """Test that async_setup_entry creates runtime_data on the entry."""
-    with patch(f"custom_components.{DOMAIN}.CryptoInfoData") as mock_data_class:
-        mock_data = AsyncMock()
-        mock_data.async_initialize = AsyncMock()
-        mock_data.store = AsyncMock()
-        mock_data_class.return_value = mock_data
+    """Full setup then unload of a price entry creates and removes the entity."""
+    price_config_entry.add_to_hass(hass)
 
-        # Import here to avoid import errors before patches
-        from custom_components.cryptoinfo import async_setup_entry
+    assert await hass.config_entries.async_setup(price_config_entry.entry_id)
+    await hass.async_block_till_done()
 
-        # Create a mock config entry
-        mock_entry = MagicMock()
-        mock_entry.entry_id = "test_entry_id"
-        mock_entry.add_update_listener = MagicMock(return_value=lambda: None)
-        mock_entry.async_on_unload = MagicMock()
-        mock_entry.runtime_data = None
+    assert price_config_entry.state is ConfigEntryState.LOADED
+    assert isinstance(price_config_entry.runtime_data, CryptoInfoRuntimeData)
 
-        with patch.object(
-            hass.config_entries,
-            "async_forward_entry_setups",
-            return_value=None,
-        ):
-            result = await async_setup_entry(hass, mock_entry)
+    ent_reg = er.async_get(hass)
+    entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_test_bitcoin_usd")
+    assert entity_id is not None
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert float(state.state) == 50000.0
+    assert state.attributes["cryptocurrency_name"] == "Bitcoin"
 
-        assert result is True
-        # Verify runtime_data was set on the entry
-        assert mock_entry.runtime_data is not None
-        assert isinstance(mock_entry.runtime_data, CryptoInfoRuntimeData)
-        assert mock_entry.runtime_data.shared_data is mock_data
+    assert await hass.config_entries.async_unload(price_config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert price_config_entry.state is ConfigEntryState.NOT_LOADED
 
 
-async def test_async_unload_entry(
+async def test_reload_entry(
     hass: HomeAssistant,
+    price_config_entry: MockConfigEntry,
+    mock_coingecko: AiohttpClientMocker,
 ) -> None:
-    """Test that async_unload_entry properly unloads."""
-    from custom_components.cryptoinfo import async_unload_entry
+    """Reloading an entry keeps it loaded."""
+    price_config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(price_config_entry.entry_id)
+    await hass.async_block_till_done()
 
-    # Setup mock runtime_data
-    mock_store = AsyncMock()
-    mock_shared_data = AsyncMock()
-    mock_shared_data.store = mock_store
+    await hass.config_entries.async_reload(price_config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert price_config_entry.state is ConfigEntryState.LOADED
 
-    mock_runtime_data = CryptoInfoRuntimeData(
-        shared_data=mock_shared_data,
-        coordinator=None,
-        coordinators={},
-    )
 
-    # Create a mock config entry with runtime_data
-    mock_entry = MagicMock()
-    mock_entry.entry_id = "test_entry_id"
-    mock_entry.runtime_data = mock_runtime_data
+async def test_migrate_entry_returns_true(
+    hass: HomeAssistant,
+    price_config_entry: MockConfigEntry,
+) -> None:
+    """The migration entrypoint is idempotent and returns True."""
+    price_config_entry.add_to_hass(hass)
+    assert await async_migrate_entry(hass, price_config_entry) is True
 
-    with patch.object(
-        hass.config_entries,
-        "async_unload_platforms",
-        return_value=True,
-    ):
-        result = await async_unload_entry(hass, mock_entry)
 
-    assert result is True
-    mock_store.async_save.assert_called_once()
+async def test_setup_retry_when_init_fails(
+    hass: HomeAssistant,
+    price_config_entry: MockConfigEntry,
+) -> None:
+    """A failed shared-data init raises ConfigEntryNotReady (SETUP_RETRY)."""
+    price_config_entry.add_to_hass(hass)
+    with patch("custom_components.cryptoinfo.CryptoInfoData") as mock_data_cls:
+        instance = mock_data_cls.return_value
+        instance.async_initialize = AsyncMock(side_effect=CryptoInfoConnectionError("boom"))
+        assert not await hass.config_entries.async_setup(price_config_entry.entry_id)
+        await hass.async_block_till_done()
+    assert price_config_entry.state is ConfigEntryState.SETUP_RETRY

@@ -1,0 +1,9 @@
+{
+    "entity": {
+        "sensor": {
+            "crypto_price": {
+                "default": "mdi:bitcoin"
+            }
+        }
+    }
+}

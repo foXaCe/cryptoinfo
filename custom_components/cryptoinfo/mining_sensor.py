@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Mining sensor components for Cryptoinfo.
 
 Author: foXaCe
@@ -8,25 +7,21 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
     UpdateFailed,
 )
 
-if TYPE_CHECKING:
-    from typing import Any
-
-    from homeassistant.core import HomeAssistant
-
 from .const.const import (
     _LOGGER,
+    CKPOOL_REGION_EU,
     CONF_BTC_ADDRESS,
+    CONF_CKPOOL_REGION,
     CONF_ID,
     CONF_SENSOR_TYPE,
     CONF_UPDATE_FREQUENCY,
@@ -38,41 +33,46 @@ from .const.const import (
 )
 from .helper.blockchain_api import BlockchainAPI, CKPoolAPI
 
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+# Coordinator-driven entities do not perform their own I/O.
+PARALLEL_UPDATES = 0
+
 # Default timeout for API requests (seconds)
 DEFAULT_TIMEOUT = 30
 
 
 async def async_setup_mining_sensors(
     hass: HomeAssistant,
-    config: dict,
+    config: dict[str, Any],
     async_add_entities: AddEntitiesCallback,
 ) -> bool:
     """Set up mining sensors based on sensor type."""
     sensor_type = config.get(CONF_SENSOR_TYPE)
-    id_name = config.get(CONF_ID, "").strip()
+    id_name = (config.get(CONF_ID) or "").strip()
     update_frequency = timedelta(minutes=float(config.get(CONF_UPDATE_FREQUENCY, 5)))
 
     if sensor_type == SENSOR_TYPE_BTC_NETWORK:
-        coordinator = BTCNetworkCoordinator(hass, update_frequency)
-        await coordinator.async_config_entry_first_refresh()
-        async_add_entities([BTCNetworkSensor(coordinator, id_name)])
+        network_coordinator = BTCNetworkCoordinator(hass, update_frequency)
+        await network_coordinator.async_config_entry_first_refresh()
+        async_add_entities([BTCNetworkSensor(network_coordinator, id_name)])
 
     elif sensor_type == SENSOR_TYPE_BTC_MEMPOOL:
-        coordinator = BTCMempoolCoordinator(hass, update_frequency)
-        await coordinator.async_config_entry_first_refresh()
-        async_add_entities([BTCMempoolSensor(coordinator, id_name)])
+        mempool_coordinator = BTCMempoolCoordinator(hass, update_frequency)
+        await mempool_coordinator.async_config_entry_first_refresh()
+        async_add_entities([BTCMempoolSensor(mempool_coordinator, id_name)])
 
     elif sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-        from .const.const import CKPOOL_REGION_EU, CONF_CKPOOL_REGION
-
-        btc_address = config.get(CONF_BTC_ADDRESS, "").strip()
+        btc_address = (config.get(CONF_BTC_ADDRESS) or "").strip()
         if not btc_address:
             _LOGGER.error("BTC address is required for CKPool mining sensor")
             return False
         pool_region = config.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
-        coordinator = CKPoolCoordinator(hass, btc_address, pool_region, update_frequency)
-        await coordinator.async_config_entry_first_refresh()
-        async_add_entities([CKPoolMiningSensor(coordinator, id_name, btc_address)])
+        ckpool_coordinator = CKPoolCoordinator(hass, btc_address, pool_region, update_frequency)
+        await ckpool_coordinator.async_config_entry_first_refresh()
+        async_add_entities([CKPoolMiningSensor(ckpool_coordinator, id_name, btc_address)])
 
     return True
 
@@ -81,6 +81,7 @@ class BTCNetworkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch Bitcoin network statistics."""
 
     def __init__(self, hass: HomeAssistant, update_interval: timedelta) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
@@ -103,6 +104,7 @@ class BTCMempoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch Bitcoin mempool statistics."""
 
     def __init__(self, hass: HomeAssistant, update_interval: timedelta) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
@@ -125,6 +127,7 @@ class CKPoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to fetch CKPool mining statistics."""
 
     def __init__(self, hass: HomeAssistant, btc_address: str, pool_region: str, update_interval: timedelta) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             hass,
             _LOGGER,
@@ -147,18 +150,16 @@ class CKPoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 class BTCNetworkSensor(CoordinatorEntity[BTCNetworkCoordinator], SensorEntity):
     """Bitcoin Network Statistics Sensor."""
 
-    __slots__ = ()
-
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_translation_key = "btc_network"
     _attr_icon = "mdi:bitcoin"
     _attr_native_unit_of_measurement = "EH/s"
     _attr_suggested_display_precision = 2
 
     def __init__(self, coordinator: BTCNetworkCoordinator, id_name: str) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_name = f"{id_name} Bitcoin Network" if id_name else "Bitcoin Network"
         self._attr_unique_id = f"{SENSOR_PREFIX}btc_network_{id_name}".lower().replace(" ", "_")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, "btc_network")},
@@ -176,7 +177,7 @@ class BTCNetworkSensor(CoordinatorEntity[BTCNetworkCoordinator], SensorEntity):
     def native_value(self) -> float | None:
         """Return the hashrate as the main value."""
         if self.coordinator.data:
-            return round(self.coordinator.data.get("hashrate", 0), 2)
+            return round(float(self.coordinator.data.get("hashrate", 0)), 2)
         return None
 
     @property
@@ -200,17 +201,15 @@ class BTCNetworkSensor(CoordinatorEntity[BTCNetworkCoordinator], SensorEntity):
 class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
     """Bitcoin Mempool Statistics Sensor."""
 
-    __slots__ = ()
-
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_translation_key = "btc_mempool"
     _attr_icon = "mdi:database"
     _attr_native_unit_of_measurement = "txs"
 
     def __init__(self, coordinator: BTCMempoolCoordinator, id_name: str) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_name = f"{id_name} Bitcoin Mempool" if id_name else "Bitcoin Mempool"
         self._attr_unique_id = f"{SENSOR_PREFIX}btc_mempool_{id_name}".lower().replace(" ", "_")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, "btc_mempool")},
@@ -228,7 +227,7 @@ class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
     def native_value(self) -> int | None:
         """Return the mempool size as the main value."""
         if self.coordinator.data:
-            return self.coordinator.data.get("mempool_size", 0)
+            return int(self.coordinator.data.get("mempool_size", 0))
         return None
 
     @property
@@ -251,18 +250,16 @@ class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
 class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
     """CKPool Solo Mining Statistics Sensor."""
 
-    __slots__ = ("btc_address",)
-
     _attr_has_entity_name = True
+    _attr_name = None
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_translation_key = "ckpool_mining"
     _attr_icon = "mdi:pickaxe"
     _attr_native_unit_of_measurement = "GH/s"
     _attr_suggested_display_precision = 2
 
     def __init__(self, coordinator: CKPoolCoordinator, id_name: str, btc_address: str) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_name = f"{id_name} CKPool Mining" if id_name else "CKPool Mining"
         self._attr_unique_id = f"{SENSOR_PREFIX}ckpool_{btc_address[:8]}".lower().replace(" ", "_")
         self.btc_address = btc_address
         self._attr_device_info = DeviceInfo(
@@ -281,7 +278,7 @@ class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
     def native_value(self) -> float | None:
         """Return the hashrate as the main value."""
         if self.coordinator.data:
-            return round(self.coordinator.data.get("hashrate", 0), 2)
+            return round(float(self.coordinator.data.get("hashrate", 0)), 2)
         return None
 
     @property
@@ -292,30 +289,21 @@ class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
 
         data = self.coordinator.data
 
-        # Format best_share for display
-        best_share = data.get("best_share", 0)
-        if best_share > 1e9:
-            best_share_display = f"{best_share / 1e9:.2f} G"
-        elif best_share > 1e6:
-            best_share_display = f"{best_share / 1e6:.2f} M"
-        else:
-            best_share_display = f"{best_share:.0f}"
-
-        # Format best_ever for display
-        best_ever = data.get("best_ever", 0)
-        if best_ever > 1e9:
-            best_ever_display = f"{best_ever / 1e9:.2f} G"
-        elif best_ever > 1e6:
-            best_ever_display = f"{best_ever / 1e6:.2f} M"
-        else:
-            best_ever_display = f"{best_ever:.0f}"
-
         return {
             "btc_address": self.btc_address,
             "hashrate_1h": round(data.get("hashrate_1h", 0), 2),
             "hashrate_24h": round(data.get("hashrate_24h", 0), 2),
-            "best_share": best_share_display,
-            "best_ever": best_ever_display,
+            "best_share": self._format_share(data.get("best_share", 0)),
+            "best_ever": self._format_share(data.get("best_ever", 0)),
             "workers": data.get("workers", 0),
             "blocks_found": data.get("blocks_found", 0),
         }
+
+    @staticmethod
+    def _format_share(value: float) -> str:
+        """Format a share value with a G/M suffix for display."""
+        if value > 1e9:
+            return f"{value / 1e9:.2f} G"
+        if value > 1e6:
+            return f"{value / 1e6:.2f} M"
+        return f"{value:.0f}"

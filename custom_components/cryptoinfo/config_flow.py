@@ -37,45 +37,13 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the config flow."""
         super().__init__()
-        self._coin_list = []
-        self._selected_cryptos = []
-        self._config_data = {}
+        self._coin_list: list[dict[str, Any]] = []
+        self._selected_cryptos: list[str] = []
+        self._config_data: dict[str, Any] = {}
 
-    async def _validate_input(self, user_input: dict[str, Any]) -> dict[str, Any]:
-        """Validate the input."""
-        errors = {}
-
-        # Split and clean the values
-        crypto_ids = [name.strip().lower() for name in user_input[CONF_CRYPTOCURRENCY_IDS].split(",")]
-        multipliers = [mult.strip() for mult in user_input[CONF_MULTIPLIERS].split(",")]
-
-        # Check if the counts match
-        if len(crypto_ids) != len(multipliers):
-            return {
-                "base": "mismatch_values",
-                "count_context": {
-                    "crypto_count": len(crypto_ids),
-                    "multiplier_count": len(multipliers),
-                },
-            }
-
-        # Validate cryptocurrency IDs against CoinGecko API
-        api = CoinGeckoAPI(self.hass)
-        validation_results = await api.validate_cryptocurrency_ids(crypto_ids)
-
-        invalid_ids = [crypto_id for crypto_id, is_valid in validation_results.items() if not is_valid]
-
-        if invalid_ids:
-            return {
-                "base": "invalid_cryptocurrency_ids",
-                "invalid_context": {
-                    "invalid_ids": ", ".join(invalid_ids),
-                },
-            }
-
-        return errors
-
-    async def async_step_reconfigure(self, user_input: Mapping[str, Any] | None = None):
+    async def async_step_reconfigure(
+        self, user_input: Mapping[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle reconfiguration flow - Unified menu."""
         from .const.const import (
             CONF_SENSOR_TYPE,
@@ -137,7 +105,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"info": "Choose an action: modify current sensor or add a new one."},
         )
 
-    async def async_step_reconfigure_price(self, user_input: Mapping[str, Any] | None = None):
+    async def async_step_reconfigure_price(
+        self, user_input: Mapping[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle price sensor reconfiguration - Step 1: Search or browse."""
         # Initialize data if needed
         if DOMAIN not in self.hass.data:
@@ -174,7 +144,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_reconfigure_mining(self, user_input: Mapping[str, Any] | None = None):
+    async def async_step_reconfigure_mining(
+        self, user_input: Mapping[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle mining sensor reconfiguration."""
         from .const.const import (
             CONF_BTC_ADDRESS,
@@ -184,7 +156,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         entry = self._config_data["entry"]
         sensor_type = entry.data.get(CONF_SENSOR_TYPE)
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             final_config = {
@@ -258,9 +230,11 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"info": description},
         )
 
-    async def async_step_reconfigure_select(self, user_input: dict[str, Any] | None = None):
+    async def async_step_reconfigure_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle crypto selection for reconfiguration - Step 2."""
-        errors = {}
+        errors: dict[str, str] = {}
         entry = self._config_data["entry"]
 
         if user_input is not None:
@@ -338,9 +312,12 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_reconfigure_configure(self, user_input: dict[str, Any] | None = None):
+    async def async_step_reconfigure_configure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle configuration for reconfiguration - Step 3."""
-        errors = {}
+        errors: dict[str, str] = {}
+        count_context: dict[str, Any] = {}
         entry = self._config_data["entry"]
         default_min_time = self.hass.data[DOMAIN].min_time_between_requests
 
@@ -350,7 +327,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if len(multipliers_list) != len(self._selected_cryptos):
                 errors["base"] = "mismatch_values"
-                errors["count_context"] = {
+                count_context = {
                     "crypto_count": len(self._selected_cryptos),
                     "multiplier_count": len(multipliers_list),
                 }
@@ -370,6 +347,10 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_MIN_TIME_BETWEEN_REQUESTS: user_input[CONF_MIN_TIME_BETWEEN_REQUESTS],
                 }
 
+                # Capture the previously configured cryptos BEFORE updating the entry so
+                # that entities for cryptos dropped from the selection can be removed.
+                old_crypto_ids = [c.strip() for c in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
+
                 # Update shared data
                 self.hass.data[DOMAIN].min_time_between_requests = final_config[CONF_MIN_TIME_BETWEEN_REQUESTS]
 
@@ -386,8 +367,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 entity_reg = er.async_get(self.hass)
 
-                old_crypto_ids = [id.strip() for id in entry.data.get(CONF_CRYPTOCURRENCY_IDS, "").split(",")]
-                removed_cryptos = [id for id in old_crypto_ids if id not in self._selected_cryptos]
+                removed_cryptos = [c for c in old_crypto_ids if c not in self._selected_cryptos]
 
                 if removed_cryptos:
                     _LOGGER.debug("Removing entities for removed cryptos: %s", removed_cryptos)
@@ -458,58 +438,11 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "selected_cryptos": crypto_names,
-                **errors.get("count_context", {}),
+                **count_context,
             },
         )
 
-    async def _redo_configuration(
-        self,
-        entry_data: Mapping[str, Any],
-        errors: dict[str, Any] | None = None,
-        count_context: dict[str, Any] | None = None,
-    ):
-        if errors is None:
-            errors = {}
-        if count_context is None:
-            count_context = {}
-
-        # Get value from shared data if available
-        default_min_time = 0.25
-        if DOMAIN in self.hass.data:
-            default_min_time = self.hass.data[DOMAIN].min_time_between_requests
-
-        cryptoinfo_schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_ID,
-                    description={"suggested_value": entry_data.get(CONF_ID, "")},
-                ): str,
-                vol.Required(
-                    CONF_CRYPTOCURRENCY_IDS,
-                    default=entry_data[CONF_CRYPTOCURRENCY_IDS],
-                ): str,
-                vol.Required(CONF_CURRENCY_NAME, default=entry_data[CONF_CURRENCY_NAME]): str,
-                vol.Required(CONF_MULTIPLIERS, default=entry_data[CONF_MULTIPLIERS]): str,
-                vol.Optional(
-                    CONF_UNIT_OF_MEASUREMENT,
-                    description={"suggested_value": entry_data.get(CONF_UNIT_OF_MEASUREMENT, "")},
-                ): str,
-                vol.Required(CONF_UPDATE_FREQUENCY, default=entry_data[CONF_UPDATE_FREQUENCY]): cv.positive_float,
-                vol.Required(
-                    CONF_MIN_TIME_BETWEEN_REQUESTS,
-                    description={"suggested_value": default_min_time},
-                ): cv.positive_float,
-            }
-        )
-
-        return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=cryptoinfo_schema,
-            errors=errors,
-            description_placeholders={**count_context},
-        )
-
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle a flow initialized by the user - Step 1: Choose sensor type."""
         from .const.const import (
             CONF_SENSOR_TYPE,
@@ -548,9 +481,11 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"info": "Choose the type of sensor you want to create."},
         )
 
-    async def async_step_price_search(self, user_input: dict[str, Any] | None = None):
+    async def async_step_price_search(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle cryptocurrency price sensor - Step 2: Search or browse."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         # Initialize data if needed
         if DOMAIN not in self.hass.data:
@@ -587,9 +522,11 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_select_crypto(self, user_input: dict[str, Any] | None = None):
+    async def async_step_select_crypto(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle crypto selection - Step 2: Select cryptocurrencies."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             selected = user_input.get("selected_cryptos", [])
@@ -640,9 +577,10 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_configure(self, user_input: dict[str, Any] | None = None):
+    async def async_step_configure(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle configuration - Step 3: Configure multipliers and settings."""
-        errors = {}
+        errors: dict[str, str] = {}
+        count_context: dict[str, Any] = {}
 
         default_min_time = self.hass.data[DOMAIN].min_time_between_requests
 
@@ -653,7 +591,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if len(multipliers_list) != len(self._selected_cryptos):
                 errors["base"] = "mismatch_values"
-                errors["count_context"] = {
+                count_context = {
                     "crypto_count": len(self._selected_cryptos),
                     "multiplier_count": len(multipliers_list),
                 }
@@ -672,20 +610,20 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_MIN_TIME_BETWEEN_REQUESTS: user_input[CONF_MIN_TIME_BETWEEN_REQUESTS],
                 }
 
-                try:
-                    await self.async_set_unique_id(final_config[CONF_ID])
-                    self._abort_if_unique_id_configured()
+                # Build a stable unique id (fall back to cryptos+currency when no id is given)
+                unique_id = final_config[CONF_ID].strip() or (
+                    f"{final_config[CONF_CRYPTOCURRENCY_IDS]}_{final_config[CONF_CURRENCY_NAME]}"
+                )
+                await self.async_set_unique_id(unique_id.lower())
+                self._abort_if_unique_id_configured()
 
-                    # Update shared data
-                    self.hass.data[DOMAIN].min_time_between_requests = final_config[CONF_MIN_TIME_BETWEEN_REQUESTS]
+                # Update shared data
+                self.hass.data[DOMAIN].min_time_between_requests = final_config[CONF_MIN_TIME_BETWEEN_REQUESTS]
 
-                    return self.async_create_entry(
-                        title=f"Cryptoinfo - {final_config[CONF_ID] or 'Wallet'}",
-                        data=final_config,
-                    )
-                except Exception as ex:
-                    _LOGGER.error("Error creating entry: %s", ex)
-                    errors["base"] = f"Error creating entry: {ex}"
+                return self.async_create_entry(
+                    title=f"Cryptoinfo - {final_config[CONF_ID] or 'Wallet'}",
+                    data=final_config,
+                )
 
         # Generate default multipliers (1 for each selected crypto)
         default_multipliers = ", ".join(["1"] * len(self._selected_cryptos))
@@ -728,11 +666,13 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "selected_cryptos": crypto_names,
-                **errors.get("count_context", {}),
+                **count_context,
             },
         )
 
-    async def async_step_select_mining_type(self, user_input: dict[str, Any] | None = None):
+    async def async_step_select_mining_type(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Select which type of mining sensor to add."""
         from .const.const import (
             CONF_SENSOR_TYPE,
@@ -764,7 +704,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"info": "Choose the type of mining sensor to add."},
         )
 
-    async def async_step_mining_config(self, user_input: dict[str, Any] | None = None):
+    async def async_step_mining_config(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
         """Handle mining sensor configuration."""
         from .const.const import (
             CONF_BTC_ADDRESS,
@@ -774,9 +716,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             SENSOR_TYPE_CKPOOL_MINING,
         )
 
-        errors = {}
+        errors: dict[str, str] = {}
         # Get sensor type from config_data (for new sensors) or from validation context
-        sensor_type = self._config_data.get(CONF_SENSOR_TYPE)
+        sensor_type: str = self._config_data.get(CONF_SENSOR_TYPE, "")
 
         if user_input is not None:
             final_config = {
@@ -797,25 +739,21 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     final_config[CONF_CKPOOL_REGION] = user_input.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
 
             if not errors:
-                try:
-                    # Use sensor type + ID as unique ID
-                    unique_id = f"{sensor_type}_{final_config[CONF_ID]}".lower().replace(" ", "_")
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
+                # Use sensor type + ID as unique ID
+                unique_id = f"{sensor_type}_{final_config[CONF_ID]}".lower().replace(" ", "_")
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
 
-                    sensor_names = {
-                        SENSOR_TYPE_BTC_NETWORK: "Bitcoin Network",
-                        SENSOR_TYPE_BTC_MEMPOOL: "Bitcoin Mempool",
-                        SENSOR_TYPE_CKPOOL_MINING: "CKPool Mining",
-                    }
+                sensor_names = {
+                    SENSOR_TYPE_BTC_NETWORK: "Bitcoin Network",
+                    SENSOR_TYPE_BTC_MEMPOOL: "Bitcoin Mempool",
+                    SENSOR_TYPE_CKPOOL_MINING: "CKPool Mining",
+                }
 
-                    return self.async_create_entry(
-                        title=f"{sensor_names.get(sensor_type, 'Mining')} - {final_config[CONF_ID] or 'Stats'}",
-                        data=final_config,
-                    )
-                except Exception as ex:
-                    _LOGGER.error("Error creating mining sensor: %s", ex)
-                    errors["base"] = f"Error creating entry: {ex}"
+                return self.async_create_entry(
+                    title=f"{sensor_names.get(sensor_type, 'Mining')} - {final_config[CONF_ID] or 'Stats'}",
+                    data=final_config,
+                )
 
         # Build schema based on sensor type
         if sensor_type == SENSOR_TYPE_CKPOOL_MINING:

@@ -105,8 +105,33 @@ This example combines the total value of all your sensors into this 1 template s
         friendly_name: Total value of all my cryptocurrencies
 ```
 
-### API limit
-CoinGecko’s Public API has a <a href='https://support.coingecko.com/hc/en-us/articles/4538771776153-What-is-the-rate-limit-for-CoinGecko-API-public-plan' target='_blank'>rate limit</a> of 5 to 15 calls per minute, depending on usage conditions worldwide.
+### Mining sensors (Bitcoin)
+Besides cryptocurrency prices, Cryptoinfo can also create Bitcoin mining-related sensors. Pick the sensor type on the first step of the configuration flow:
+
+- **Bitcoin Network** — global network hashrate (EH/s), difficulty, block height, next difficulty retarget and next halving. Data from [mempool.space](https://mempool.space).
+- **Bitcoin Mempool** — number of unconfirmed transactions, mempool size (MB) and recommended fees (sat/vB). Data from [mempool.space](https://mempool.space).
+- **CKPool Solo Mining** — your solo mining statistics (hashrate 1h/24h, best share, workers) for a given Bitcoin address, on the EU or Global [CKPool](https://solo.ckpool.org). Requires your Bitcoin payout address.
+
+### How data is updated
+This integration is `cloud_polling`: a coordinator periodically requests the relevant public API (CoinGecko for prices, mempool.space / CKPool for mining) at the **Update frequency** you configured. All price sensors share a single, rate-limited client (retry with exponential backoff + circuit breaker) so they stay within CoinGecko's public limits. Increase **Update frequency** and **Minimum time between requests** if you run many price sensors.
+
+### Configuration options
+After a sensor is created you can adjust its **Update frequency** (and, for price sensors, the shared **Minimum time between requests**) without recreating it: Settings → Devices & Services → Cryptoinfo → the sensor → **Configure**. You can also use **Reconfigure** to change the tracked cryptocurrencies.
+
+### Removal
+To remove the integration: Settings → Devices & Services → **Cryptoinfo**, open the overflow menu (⋮) of the entry you want to remove and choose **Delete**. Repeat for each Cryptoinfo entry. The entities and devices are removed automatically. If you installed via HACS and want to remove the code as well, remove **Cryptoinfo** from HACS afterwards and restart Home Assistant.
+
+### Known limitations
+- CoinGecko's public API is rate limited (≈5–15 calls/min). With many price sensors, set a higher update frequency to avoid throttling.
+- The CKPool EU pool exposes stats as an HTML page; parsing may break if the pool changes its frontend. The Global pool exposes a stable JSON API.
+- `blocks_found` is not exposed by the CKPool JSON API and is always reported as `0`.
+- Prices come from CoinGecko only; no other source is supported.
+
+### Troubleshooting
+- **Sensor shows `unavailable`** — the API call failed (rate limit, network, or maintenance). Sensors recover automatically on the next successful update. Check Settings → System → Logs for `custom_components.cryptoinfo` messages.
+- **"Invalid cryptocurrency IDs"** in the config flow — use the exact `id` from the [CoinGecko coins list](https://api.coingecko.com/api/v3/coins/list) (e.g. `bitcoin`, not `BTC`).
+- **Rate limited** — increase the **Update frequency** / **Minimum time between requests**, or reduce the number of price sensors.
+- **Diagnostics** — download diagnostics from the integration entry (overflow menu) to share sanitized state when opening an issue (your Bitcoin address is redacted).
 
 ### Issues and new functionality
 If there are any problems, please create an issue in https://github.com/foXaCe/cryptoinfo/issues

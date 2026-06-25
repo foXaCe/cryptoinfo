@@ -37,14 +37,8 @@ jobs:
       - name: Run Ruff formatter check
         run: ruff format --check .
 
-      - name: Run mypy
-        run: |
-          mypy custom_components/cryptoinfo \
-            --ignore-missing-imports \
-            --disable-error-code=call-arg \
-            --disable-error-code=var-annotated \
-            --disable-error-code=assignment \
-            --disable-error-code=dict-item
+      - name: Run mypy (strict)
+        run: mypy custom_components/cryptoinfo
 
   test:
     name: Test (Python ${{ matrix.python-version }})

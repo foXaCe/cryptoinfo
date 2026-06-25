@@ -40,14 +40,17 @@ class CoinGeckoAPI:
         "_consecutive_failures",
         "_request_timestamps",
         "hass",
+        "min_request_interval",
     )
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the API helper."""
         self.hass = hass
-        self._coin_list_cache: list[dict] | None = None
+        self._coin_list_cache: list[dict[str, Any]] | None = None
         # Rate limiting
         self._request_timestamps: list[datetime] = []
+        # Minimum delay (seconds) between consecutive requests (0 = sliding window only)
+        self.min_request_interval: float = 0.0
         # Circuit breaker
         self._consecutive_failures = 0
         self._circuit_open_until: datetime | None = None
@@ -64,13 +67,23 @@ class CoinGeckoAPI:
         cutoff = now - timedelta(seconds=RATE_LIMIT_PERIOD)
         self._request_timestamps = [ts for ts in self._request_timestamps if ts > cutoff]
 
-        # Check if rate limited
+        # Enforce a minimum delay between two consecutive requests
+        if self.min_request_interval > 0 and self._request_timestamps:
+            elapsed = (now - self._request_timestamps[-1]).total_seconds()
+            wait = self.min_request_interval - elapsed
+            if wait > 0:
+                _LOGGER.debug("Min-interval throttle, waiting %.1f seconds", wait)
+                await asyncio.sleep(wait)
+                now = datetime.now(UTC)
+
+        # Sliding-window rate limit
         if len(self._request_timestamps) >= RATE_LIMIT_CALLS:
             oldest = self._request_timestamps[0]
             wait_time = (oldest + timedelta(seconds=RATE_LIMIT_PERIOD) - now).total_seconds()
             if wait_time > 0:
                 _LOGGER.warning("Rate limited, waiting %.1f seconds", wait_time)
                 await asyncio.sleep(wait_time)
+                now = datetime.now(UTC)
 
         self._request_timestamps.append(now)
 
@@ -190,7 +203,7 @@ class CoinGeckoAPI:
     # API METHODS
     # =========================================================================
 
-    async def get_coin_list(self) -> list[dict]:
+    async def get_coin_list(self) -> list[dict[str, Any]]:
         """Fetch the list of all available cryptocurrencies from CoinGecko."""
         if self._coin_list_cache:
             return self._coin_list_cache
@@ -202,6 +215,23 @@ class CoinGeckoAPI:
         except Exception as err:
             _LOGGER.error("Error fetching coin list from CoinGecko: %s", err)
             return []
+
+    async def get_coins_markets(self, cryptocurrency_ids: str, vs_currency: str) -> list[dict[str, Any]]:
+        """Fetch market data for the given cryptocurrencies.
+
+        Uses the shared resilience layer (retry, rate limiting, circuit breaker).
+        Raises CryptoInfoError subclasses on failure so callers can convert to UpdateFailed.
+        """
+        url = (
+            f"{API_ENDPOINT}coins/markets"
+            f"?ids={cryptocurrency_ids}"
+            f"&vs_currency={vs_currency}"
+            f"&price_change_percentage=1h,24h,7d,14d,30d,1y"
+        )
+        data = await self._request(url)
+        if not isinstance(data, list):
+            raise CryptoInfoInvalidResponseError("Unexpected markets response from CoinGecko")
+        return data
 
     async def validate_cryptocurrency_ids(self, crypto_ids: list[str]) -> dict[str, bool]:
         """Validate if cryptocurrency IDs exist in CoinGecko.
@@ -216,7 +246,7 @@ class CoinGeckoAPI:
         valid_ids = {coin["id"].lower() for coin in coin_list}
         return {crypto_id: crypto_id.lower() in valid_ids for crypto_id in crypto_ids}
 
-    async def search_cryptocurrencies(self, query: str, limit: int = 10) -> list[dict]:
+    async def search_cryptocurrencies(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search for cryptocurrencies by name or symbol.
 
         Returns a list of matching coins with id, name, and symbol.
@@ -236,7 +266,7 @@ class CoinGeckoAPI:
 
         return matches[:limit]
 
-    async def get_top_cryptocurrencies(self, limit: int = 10) -> list[dict]:
+    async def get_top_cryptocurrencies(self, limit: int = 10) -> list[dict[str, Any]]:
         """Fetch top cryptocurrencies by market cap from CoinGecko.
 
         Returns a list of top coins sorted by market cap rank.
