@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/foXaCe/cryptoinfo/issues",
   "loggers": ["custom_components.cryptoinfo"],
   "requirements": [],
-  "version": "1.8.2"
+  "version": "1.8.3"
 }
