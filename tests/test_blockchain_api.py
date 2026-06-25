@@ -79,7 +79,7 @@ async def test_ckpool_html_eu_pool(hass: HomeAssistant, aioclient_mock: AiohttpC
 
 
 def test_extract_json_from_html_returns_none_on_garbage(hass: HomeAssistant) -> None:
-    """Unparseable HTML yields None."""
+    """Unparsable HTML yields None."""
     api = CKPoolAPI(hass)
     assert api._extract_json_from_html("<html>nothing useful</html>") is None
 
@@ -152,7 +152,7 @@ async def test_ckpool_http_error(hass: HomeAssistant, aioclient_mock: AiohttpCli
         await api.get_user_stats("addr")
 
 
-async def test_ckpool_html_unparseable(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+async def test_ckpool_html_unparsable(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
     """HTML that cannot be parsed yields no data."""
     aioclient_mock.get(
         "https://eusolostats.ckpool.org/users/addr",

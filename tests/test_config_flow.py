@@ -97,7 +97,7 @@ async def test_reconfigure_price_deselect_removes_crypto(
     entry.add_to_hass(hass)
     result = await entry.start_reconfigure_flow(hass)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"action": "modify"})
-    # Empty search -> default browse merges top + existing, all pre-selected.
+    # Empty search -> default browse merges top + existing, all preselected.
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"search_query": ""})
     assert result["step_id"] == "reconfigure_select"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"selected_cryptos": ["bitcoin"]})

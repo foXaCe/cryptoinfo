@@ -292,7 +292,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "no_results"
             return await self.async_step_reconfigure_price()
 
-        # Pre-select ONLY existing cryptocurrencies
+        # Preselect ONLY existing cryptocurrencies
         default_selected = [id for id in existing_ids if id in crypto_options]
 
         select_schema = vol.Schema(
@@ -306,9 +306,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=select_schema,
             errors=errors,
             description_placeholders={
-                "info": f"Top 10 by market cap shown. Your {len(existing_ids)} current crypto(s) are pre-selected."
+                "info": f"Top 10 by market cap shown. Your {len(existing_ids)} current crypto(s) are preselected."
                 if not search_query
-                else f"Search results for '{search_query}'. Your current cryptos are also shown and pre-selected."
+                else f"Search results for '{search_query}'. Your current cryptos are also shown and preselected."
             },
         )
 

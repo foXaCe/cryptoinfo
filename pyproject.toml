@@ -4,7 +4,7 @@ version = "1.8.2"
 description = "Home Assistant integration for cryptocurrency information"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [
     {name = "heyajohnny"},
 ]
@@ -15,8 +15,8 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 120
 
 [tool.ruff.lint]
