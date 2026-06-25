@@ -21,7 +21,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.4.2",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=4.1.0",
     "pytest-homeassistant-custom-component>=0.13.341",
