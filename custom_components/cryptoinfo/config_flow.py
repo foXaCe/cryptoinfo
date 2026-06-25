@@ -10,22 +10,32 @@ from collections.abc import Mapping
 from typing import Any
 
 from homeassistant import config_entries
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
 from .const.const import (
     _LOGGER,
+    CKPOOL_REGION_EU,
+    CKPOOL_REGION_GLOBAL,
+    CONF_BTC_ADDRESS,
+    CONF_CKPOOL_REGION,
     CONF_CRYPTOCURRENCY_IDS,
     CONF_CURRENCY_NAME,
     CONF_ID,
     CONF_MIN_TIME_BETWEEN_REQUESTS,
     CONF_MULTIPLIERS,
+    CONF_SENSOR_TYPE,
     CONF_UNIT_OF_MEASUREMENT,
     CONF_UPDATE_FREQUENCY,
     DOMAIN,
+    SENSOR_TYPE_BTC_MEMPOOL,
+    SENSOR_TYPE_BTC_NETWORK,
+    SENSOR_TYPE_CKPOOL_MINING,
+    SENSOR_TYPE_PRICE,
 )
 from .helper.coingecko_api import CoinGeckoAPI
 from .helper.crypto_info_data import CryptoInfoData
+from .helpers import build_price_unique_id
 
 
 class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -45,14 +55,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: Mapping[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle reconfiguration flow - Unified menu."""
-        from .const.const import (
-            CONF_SENSOR_TYPE,
-            SENSOR_TYPE_BTC_MEMPOOL,
-            SENSOR_TYPE_BTC_NETWORK,
-            SENSOR_TYPE_CKPOOL_MINING,
-            SENSOR_TYPE_PRICE,
-        )
-
         entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         if entry is None:
             return self.async_abort(reason="entry_not_found")
@@ -148,12 +150,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: Mapping[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle mining sensor reconfiguration."""
-        from .const.const import (
-            CONF_BTC_ADDRESS,
-            CONF_SENSOR_TYPE,
-            SENSOR_TYPE_CKPOOL_MINING,
-        )
-
         entry = self._config_data["entry"]
         sensor_type = entry.data.get(CONF_SENSOR_TYPE)
         errors: dict[str, str] = {}
@@ -167,8 +163,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Preserve or update BTC address for CKPool
             if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-                from .const.const import CKPOOL_REGION_EU, CONF_CKPOOL_REGION
-
                 btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip() or entry.data.get(CONF_BTC_ADDRESS, "")
                 if not btc_address:
                     errors["base"] = "btc_address_required"
@@ -192,8 +186,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build schema
         if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-            from .const.const import CKPOOL_REGION_EU, CKPOOL_REGION_GLOBAL, CONF_CKPOOL_REGION
-
             schema = vol.Schema(
                 {
                     vol.Optional(CONF_ID, default=entry.data.get(CONF_ID, "")): str,
@@ -333,8 +325,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             else:
                 # Build final config - preserve optional fields from existing entry if not provided
-                from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
-
                 final_config = {
                     CONF_SENSOR_TYPE: entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE),  # Preserve sensor type
                     CONF_ID: user_input.get(CONF_ID) or entry.data.get(CONF_ID, ""),
@@ -361,10 +351,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
 
                 # Remove orphaned entities (cryptos that were removed from selection)
-                from homeassistant.helpers import entity_registry as er
-
-                from .const.const import SENSOR_PREFIX
-
                 entity_reg = er.async_get(self.hass)
 
                 removed_cryptos = [c for c in old_crypto_ids if c not in self._selected_cryptos]
@@ -373,8 +359,8 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _LOGGER.debug("Removing entities for removed cryptos: %s", removed_cryptos)
                     for crypto_id in removed_cryptos:
                         # Build unique_id for this crypto
-                        unique_id = f"{SENSOR_PREFIX}{final_config[CONF_ID]}_{crypto_id}_{final_config[CONF_CURRENCY_NAME]}".lower().replace(
-                            " ", "_"
+                        unique_id = build_price_unique_id(
+                            final_config[CONF_ID], crypto_id, final_config[CONF_CURRENCY_NAME]
                         )
                         # Find entity by unique_id
                         for entity_id, entity_entry in entity_reg.entities.items():
@@ -444,14 +430,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Handle a flow initialized by the user - Step 1: Choose sensor type."""
-        from .const.const import (
-            CONF_SENSOR_TYPE,
-            SENSOR_TYPE_BTC_MEMPOOL,
-            SENSOR_TYPE_BTC_NETWORK,
-            SENSOR_TYPE_CKPOOL_MINING,
-            SENSOR_TYPE_PRICE,
-        )
-
         if user_input is not None:
             sensor_type = user_input.get(CONF_SENSOR_TYPE)
             self._config_data[CONF_SENSOR_TYPE] = sensor_type
@@ -597,8 +575,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             else:
                 # Build final config
-                from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
-
                 final_config = {
                     CONF_SENSOR_TYPE: SENSOR_TYPE_PRICE,  # Ensure price sensor type is set
                     CONF_ID: user_input.get(CONF_ID, ""),
@@ -674,13 +650,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Select which type of mining sensor to add."""
-        from .const.const import (
-            CONF_SENSOR_TYPE,
-            SENSOR_TYPE_BTC_MEMPOOL,
-            SENSOR_TYPE_BTC_NETWORK,
-            SENSOR_TYPE_CKPOOL_MINING,
-        )
-
         if user_input is not None:
             sensor_type = user_input.get(CONF_SENSOR_TYPE)
             self._config_data[CONF_SENSOR_TYPE] = sensor_type
@@ -708,14 +677,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Handle mining sensor configuration."""
-        from .const.const import (
-            CONF_BTC_ADDRESS,
-            CONF_SENSOR_TYPE,
-            SENSOR_TYPE_BTC_MEMPOOL,
-            SENSOR_TYPE_BTC_NETWORK,
-            SENSOR_TYPE_CKPOOL_MINING,
-        )
-
         errors: dict[str, str] = {}
         # Get sensor type from config_data (for new sensors) or from validation context
         sensor_type: str = self._config_data.get(CONF_SENSOR_TYPE, "")
@@ -729,8 +690,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Add BTC address if CKPool sensor
             if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-                from .const.const import CKPOOL_REGION_EU, CONF_CKPOOL_REGION
-
                 btc_address = user_input.get(CONF_BTC_ADDRESS, "").strip()
                 if not btc_address:
                     errors["base"] = "btc_address_required"
@@ -757,8 +716,6 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build schema based on sensor type
         if sensor_type == SENSOR_TYPE_CKPOOL_MINING:
-            from .const.const import CKPOOL_REGION_EU, CKPOOL_REGION_GLOBAL, CONF_CKPOOL_REGION
-
             mining_schema = vol.Schema(
                 {
                     vol.Optional(CONF_ID, description={"suggested_value": "My Mining"}): str,
@@ -845,8 +802,6 @@ class CryptoInfoOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Manage the options."""
-        from .const.const import CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE
-
         errors: dict[str, str] = {}
         entry = self.config_entry
         sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
