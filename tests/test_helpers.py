@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
+import pytest
 
 from custom_components.cryptoinfo.helper.crypto_info_data import CryptoInfoData
 from custom_components.cryptoinfo.helper.storage_helper import (
     DEFAULT_MIN_TIME_BETWEEN_REQUESTS,
     CryptoInfoStore,
 )
+from custom_components.cryptoinfo.helpers import build_price_unique_id
+
+
+@pytest.mark.parametrize(
+    ("id_name", "cryptocurrency_id", "currency_name", "expected"),
+    [
+        ("My Wallet", "bitcoin", "usd", "cryptoinfo_my_wallet_bitcoin_usd"),
+        ("", "ethereum", "EUR", "cryptoinfo__ethereum_eur"),
+        ("Trading Portfolio", "Bitcoin", "USD", "cryptoinfo_trading_portfolio_bitcoin_usd"),
+    ],
+)
+def test_build_price_unique_id(id_name: str, cryptocurrency_id: str, currency_name: str, expected: str) -> None:
+    """The price unique_id is lowercased, space-free and stable (no drift allowed)."""
+    assert build_price_unique_id(id_name, cryptocurrency_id, currency_name) == expected
 
 
 async def test_crypto_info_data_setter(hass: HomeAssistant) -> None:

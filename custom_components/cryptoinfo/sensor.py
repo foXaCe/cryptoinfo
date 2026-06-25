@@ -43,13 +43,13 @@ from .const.const import (
     CONF_UNIT_OF_MEASUREMENT,
     CONF_UPDATE_FREQUENCY,
     DOMAIN,
-    SENSOR_PREFIX,
     SENSOR_TYPE_BTC_MEMPOOL,
     SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
     SENSOR_TYPE_PRICE,
 )
 from .coordinator import CryptoDataCoordinator
+from .helpers import build_price_unique_id
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -171,7 +171,7 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
         }
 
         # Unique ID (stable across renames; currency + id_name keep it unique)
-        self._attr_unique_id = f"{SENSOR_PREFIX}{id_name}_{cryptocurrency_id}_{currency_name}".lower().replace(" ", "_")
+        self._attr_unique_id = build_price_unique_id(id_name, cryptocurrency_id, currency_name)
 
         # Device info (enables device grouping in HA)
         self._attr_device_info = DeviceInfo(

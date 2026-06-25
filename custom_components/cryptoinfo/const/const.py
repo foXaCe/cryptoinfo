@@ -39,7 +39,6 @@ CONF_MIN_TIME_BETWEEN_REQUESTS = "min_time_between_requests"
 # Mining sensor configuration
 CONF_SENSOR_TYPE = "sensor_type"
 CONF_BTC_ADDRESS = "btc_address"
-CONF_POOL_URL = "pool_url"
 CONF_CKPOOL_REGION = "ckpool_region"
 
 # CKPool regions
