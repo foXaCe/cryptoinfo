@@ -1,0 +1,39 @@
+{
+    "name": "Cryptoinfo Development",
+    "image": "ghcr.io/home-assistant/devcontainer:2024.12",
+    "postCreateCommand": "pip install -e '.[dev]' && pre-commit install",
+    "forwardPorts": [8123],
+    "portsAttributes": {
+        "8123": {
+            "label": "Home Assistant",
+            "onAutoForward": "notify"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "redhat.vscode-yaml",
+                "esbenp.prettier-vscode"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.analysis.typeCheckingMode": "basic",
+                "editor.formatOnSave": true,
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff",
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll": "explicit",
+                        "source.organizeImports": "explicit"
+                    }
+                },
+                "files.associations": {
+                    "*.yaml": "home-assistant"
+                }
+            }
+        }
+    },
+    "remoteUser": "vscode"
+}
