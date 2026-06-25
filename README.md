@@ -57,7 +57,7 @@ The entities have some important attributes:
 - cryptocurrency_name   This will return the cryptocurrency name
 - cryptocurrency_symbol This will return the cryptocurrency symbol
 - currency_name         This will return the currency name
-- base_price            This will return the price of 1 coin / token in 'currency_name'(default = "usd") of the 'cryptocurrency_id'
+- baseprice             This will return the price of 1 coin / token in 'currency_name'(default = "usd") of the 'cryptocurrency_id'
 - multiplier            This will return the number of coins / tokens
 - 24h_volume            This will return the 24 hour volume in 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - 1h_change             This will return the 1 hour change in percentage of the 'cryptocurrency_id'(default = "bitcoin")
@@ -69,7 +69,7 @@ The entities have some important attributes:
 - market_cap            This will return the total market cap of the 'cryptocurrency_id'(default = "bitcoin") displayed in 'currency_name'(default = "usd")
 - circulating_supply    This will return the circulating supply of the 'cryptocurrency_id'(default = "bitcoin")
 - total_supply          This will return the total supply of the 'cryptocurrency_id'(default = "bitcoin")
-- ath_price             This will return the All Time High Price of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
+- ath                   This will return the All Time High Price of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - ath_date              This will return the date when the All Time High was reached of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - ath_change            This will return the percentage change from the All Time High of the 'currency_name'(default = "usd") of the 'cryptocurrency_id'(default = "bitcoin")
 - rank                  This will return the cryptocurrency rank
