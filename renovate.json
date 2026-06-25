@@ -56,12 +56,14 @@
     {
       "matchUpdateTypes": ["major"],
       "automerge": false,
+      "platformAutomerge": false,
       "labels": ["dependencies", "major", "needs-review"]
     },
     {
       "matchPackageNames": ["homeassistant", "pytest-homeassistant-custom-component"],
       "groupName": "home-assistant",
       "automerge": false,
+      "platformAutomerge": false,
       "labels": ["dependencies", "homeassistant", "needs-review"]
     }
   ]
