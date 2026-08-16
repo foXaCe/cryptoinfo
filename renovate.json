@@ -18,7 +18,7 @@
   "prHourlyLimit": 4,
   "rangeStrategy": "bump",
   "rebaseWhen": "behind-base-branch",
-  "stabilityDays": 3,
+  "minimumReleaseAge": "3 days",
   "configMigration": true,
   "dependencyDashboardTitle": "📦 Renovate Dependency Dashboard",
   "pre-commit": { "enabled": true },
