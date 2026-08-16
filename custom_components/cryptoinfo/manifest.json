@@ -1,14 +1,18 @@
 {
   "domain": "cryptoinfo",
   "name": "Cryptoinfo",
-  "codeowners": ["@foXaCe"],
+  "codeowners": [
+    "@foXaCe"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/foXaCe/cryptoinfo",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/foXaCe/cryptoinfo/issues",
-  "loggers": ["custom_components.cryptoinfo"],
+  "loggers": [
+    "custom_components.cryptoinfo"
+  ],
   "requirements": [],
-  "version": "1.8.3"
+  "version": "1.8.4"
 }
