@@ -39,7 +39,7 @@ async def test_setup_and_unload(
 
     assert await hass.config_entries.async_unload(price_config_entry.entry_id)
     await hass.async_block_till_done()
-    assert price_config_entry.state is ConfigEntryState.NOT_LOADED
+    assert price_config_entry.state is ConfigEntryState.NOT_LOADED  # type: ignore[comparison-overlap]  # state changes at runtime after unload
 
 
 async def test_reload_entry(

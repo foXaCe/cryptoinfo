@@ -1,7 +1,7 @@
 {
     "name": "Cryptoinfo Development",
     "image": "ghcr.io/home-assistant/devcontainer:2024.12",
-    "postCreateCommand": "pip install -e '.[dev]' && pre-commit install",
+    "postCreateCommand": "pip install -e '.[dev]' && (command -v prek >/dev/null 2>&1 || pipx install prek) && prek install",
     "forwardPorts": [8123],
     "portsAttributes": {
         "8123": {

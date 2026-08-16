@@ -33,9 +33,8 @@ MEMPOOL_SPACE_API = "https://mempool.space/api"
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations: Any) -> Generator[None]:
+def auto_enable_custom_integrations(enable_custom_integrations: Any) -> None:
     """Enable loading of custom integrations in all tests."""
-    return
 
 
 @pytest.fixture
