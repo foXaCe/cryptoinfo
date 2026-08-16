@@ -28,8 +28,14 @@ async def test_btc_network_sensor(
     state = hass.states.get(entity_id)
     assert state is not None
     assert float(state.state) == 600.0  # 6e20 H/s -> 600 EH/s
-    assert state.attributes["block_height"] == 870000
-    assert state.attributes["blocks_until_halving"] == 210000 * 5 - 870000
+
+    # Metrics are now dedicated derived entities
+    block_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_network__block_height")
+    assert block_entity is not None
+    assert float(hass.states.get(block_entity).state) == 870000
+    halving_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_network__blocks_until_halving")
+    assert halving_entity is not None
+    assert float(hass.states.get(halving_entity).state) == 210000 * 5 - 870000
 
 
 async def test_btc_mempool_sensor(
@@ -48,8 +54,16 @@ async def test_btc_mempool_sensor(
     state = hass.states.get(entity_id)
     assert state is not None
     assert int(state.state) == 12000
-    assert state.attributes["fee_fastest"] == "20 sat/vB"
-    assert state.attributes["mempool_mb"] == 5.0
+
+    # Metrics are now dedicated derived entities
+    fee_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_mempool__fee_fastest")
+    assert fee_entity is not None
+    fee_state = hass.states.get(fee_entity)
+    assert float(fee_state.state) == 20.0
+    assert fee_state.attributes["unit_of_measurement"] == "sat/vB"
+    mempool_mb_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_mempool__mempool_mb")
+    assert mempool_mb_entity is not None
+    assert float(hass.states.get(mempool_mb_entity).state) == 5.0
 
 
 async def test_ckpool_sensor_global_json(
@@ -82,7 +96,11 @@ async def test_ckpool_sensor_global_json(
     state = hass.states.get(entity_id)
     assert state is not None
     assert float(state.state) == 3120.0  # 3.12T -> 3120 GH/s
-    assert state.attributes["workers"] == 2
+
+    # Workers is now a dedicated derived entity
+    workers_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_ckpool_bc1qexam_workers")
+    assert workers_entity is not None
+    assert float(hass.states.get(workers_entity).state) == 2
 
 
 async def test_ckpool_missing_address_fails_setup(
@@ -104,13 +122,6 @@ async def test_ckpool_missing_address_fails_setup(
     assert not hass.states.async_entity_ids("sensor")
 
 
-def test_ckpool_format_share() -> None:
-    """The share formatter uses G/M suffixes."""
-    assert CKPoolMiningSensor._format_share(2.5e9) == "2.50 G"
-    assert CKPoolMiningSensor._format_share(3.0e6) == "3.00 M"
-    assert CKPoolMiningSensor._format_share(500) == "500"
-
-
 async def test_mining_sensors_unavailable_without_data(hass: HomeAssistant) -> None:
     """Mining sensors report unavailable and None values without data."""
     from datetime import timedelta
@@ -121,7 +132,6 @@ async def test_mining_sensors_unavailable_without_data(hass: HomeAssistant) -> N
         BTCNetworkCoordinator,
         BTCNetworkSensor,
         CKPoolCoordinator,
-        CKPoolMiningSensor,
     )
 
     net = BTCNetworkSensor(BTCNetworkCoordinator(hass, timedelta(minutes=5)), "x")
@@ -132,7 +142,8 @@ async def test_mining_sensors_unavailable_without_data(hass: HomeAssistant) -> N
         sensor.coordinator.data = None
         assert sensor.available is False
         assert sensor.native_value is None
-        assert sensor.extra_state_attributes == {}
+        if sensor is ck:
+            assert sensor.extra_state_attributes == {"btc_address": "addr"}
 
 
 async def test_mining_coordinator_timeouts(hass: HomeAssistant) -> None:

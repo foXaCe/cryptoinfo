@@ -9,31 +9,14 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 
 from .const.const import (
-    ATTR_1H_CHANGE,
-    ATTR_1Y_CHANGE,
-    ATTR_7D_CHANGE,
-    ATTR_14D_CHANGE,
-    ATTR_24H_CHANGE,
-    ATTR_24H_VOLUME,
-    ATTR_30D_CHANGE,
-    ATTR_ATH,
-    ATTR_ATH_CHANGE,
-    ATTR_ATH_DATE,
-    ATTR_BASE_PRICE,
-    ATTR_CIRCULATING_SUPPLY,
     ATTR_CRYPTOCURRENCY_ID,
     ATTR_CRYPTOCURRENCY_NAME,
     ATTR_CRYPTOCURRENCY_SYMBOL,
     ATTR_CURRENCY_NAME,
     ATTR_IMAGE,
-    ATTR_LAST_UPDATE,
-    ATTR_MARKET_CAP,
     ATTR_MULTIPLIER,
-    ATTR_RANK,
-    ATTR_TOTAL_SUPPLY,
     CONF_CRYPTOCURRENCY_IDS,
     CONF_CURRENCY_NAME,
     CONF_ID,
@@ -50,6 +33,11 @@ from .const.const import (
 )
 from .coordinator import CryptoDataCoordinator
 from .helpers import build_price_unique_id
+from .sensor_descriptions import (
+    PRICE_DESCRIPTIONS,
+    CryptoSensorEntityDescription,
+    resolve_price_unit,
+)
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -124,17 +112,31 @@ async def async_setup_entry(
         )
         return
 
-    entities = [
-        CryptoinfoSensor(
-            coordinator=coordinator,
-            cryptocurrency_id=crypto_id,
-            currency_name=currency_name,
-            unit_of_measurement=unit_of_measurement,
-            multiplier=multipliers_list[i],
-            id_name=id_name,
+    entities: list[SensorEntity] = []
+    for i, crypto_id in enumerate(crypto_list):
+        entities.append(
+            CryptoinfoSensor(
+                coordinator=coordinator,
+                cryptocurrency_id=crypto_id,
+                currency_name=currency_name,
+                unit_of_measurement=unit_of_measurement,
+                multiplier=multipliers_list[i],
+                id_name=id_name,
+            )
         )
-        for i, crypto_id in enumerate(crypto_list)
-    ]
+        base_unique_id = build_price_unique_id(id_name, crypto_id, currency_name)
+        for description in PRICE_DESCRIPTIONS:
+            entities.append(
+                CryptoinfoDerivedSensor(
+                    coordinator=coordinator,
+                    description=description,
+                    cryptocurrency_id=crypto_id,
+                    currency_name=currency_name,
+                    unit_of_measurement=unit_of_measurement,
+                    base_unique_id=base_unique_id,
+                    id_name=id_name,
+                )
+            )
 
     async_add_entities(entities)
 
@@ -205,57 +207,86 @@ class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
+        """Return identity attributes (metrics are exposed as entities)."""
         data = self.coordinator.data.get(self.cryptocurrency_id) if self.coordinator.data else None
         if not data:
-            return self._empty_attributes()
-
+            return {
+                ATTR_CRYPTOCURRENCY_ID: self.cryptocurrency_id,
+                ATTR_CRYPTOCURRENCY_NAME: None,
+                ATTR_CRYPTOCURRENCY_SYMBOL: None,
+                ATTR_CURRENCY_NAME: self.currency_name,
+                ATTR_MULTIPLIER: self.multiplier,
+                ATTR_IMAGE: None,
+            }
         return {
-            ATTR_LAST_UPDATE: dt_util.now().strftime("%d-%m-%Y %H:%M"),
             ATTR_CRYPTOCURRENCY_ID: self.cryptocurrency_id,
             ATTR_CRYPTOCURRENCY_NAME: data.get("name"),
             ATTR_CRYPTOCURRENCY_SYMBOL: data.get("symbol"),
             ATTR_CURRENCY_NAME: self.currency_name,
-            ATTR_BASE_PRICE: data.get("current_price"),
             ATTR_MULTIPLIER: self.multiplier,
-            ATTR_24H_VOLUME: data.get("total_volume"),
-            ATTR_1H_CHANGE: data.get("price_change_percentage_1h_in_currency"),
-            ATTR_24H_CHANGE: data.get("price_change_percentage_24h_in_currency"),
-            ATTR_7D_CHANGE: data.get("price_change_percentage_7d_in_currency"),
-            ATTR_14D_CHANGE: data.get("price_change_percentage_14d_in_currency"),
-            ATTR_30D_CHANGE: data.get("price_change_percentage_30d_in_currency"),
-            ATTR_1Y_CHANGE: data.get("price_change_percentage_1y_in_currency"),
-            ATTR_MARKET_CAP: data.get("market_cap"),
-            ATTR_CIRCULATING_SUPPLY: data.get("circulating_supply"),
-            ATTR_TOTAL_SUPPLY: data.get("total_supply"),
-            ATTR_ATH: data.get("ath"),
-            ATTR_ATH_DATE: data.get("ath_date"),
-            ATTR_ATH_CHANGE: data.get("ath_change_percentage"),
-            ATTR_RANK: data.get("market_cap_rank"),
             ATTR_IMAGE: data.get("image"),
         }
 
-    def _empty_attributes(self) -> dict[str, Any]:
-        """Return empty attributes when no data available."""
-        return {
-            ATTR_LAST_UPDATE: dt_util.now().strftime("%d-%m-%Y %H:%M"),
-            ATTR_CRYPTOCURRENCY_NAME: None,
-            ATTR_CURRENCY_NAME: None,
-            ATTR_BASE_PRICE: None,
-            ATTR_MULTIPLIER: None,
-            ATTR_24H_VOLUME: None,
-            ATTR_1H_CHANGE: None,
-            ATTR_24H_CHANGE: None,
-            ATTR_7D_CHANGE: None,
-            ATTR_14D_CHANGE: None,
-            ATTR_30D_CHANGE: None,
-            ATTR_1Y_CHANGE: None,
-            ATTR_MARKET_CAP: None,
-            ATTR_CIRCULATING_SUPPLY: None,
-            ATTR_TOTAL_SUPPLY: None,
-            ATTR_ATH: None,
-            ATTR_ATH_DATE: None,
-            ATTR_ATH_CHANGE: None,
-            ATTR_RANK: None,
-            ATTR_IMAGE: None,
+
+class CryptoinfoDerivedSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
+    """A metric sensor derived from the price API record (market cap, changes, ...)."""
+
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    entity_description: CryptoSensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: CryptoDataCoordinator,
+        description: CryptoSensorEntityDescription,
+        cryptocurrency_id: str,
+        currency_name: str,
+        unit_of_measurement: str,
+        base_unique_id: str,
+        id_name: str,
+    ) -> None:
+        """Initialize the derived sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self.cryptocurrency_id = cryptocurrency_id
+        self.currency_name = currency_name
+        self._attr_translation_placeholders = {
+            "cryptocurrency": cryptocurrency_id.capitalize(),
+            "currency": currency_name.upper(),
         }
+        self._attr_unique_id = f"{base_unique_id}_{description.key}"
+        self._attr_native_unit_of_measurement = resolve_price_unit(description, unit_of_measurement)
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"cryptoinfo_{id_name or 'default'}")},
+            name=f"Cryptoinfo {id_name or 'Wallet'}",
+            manufacturer="CoinGecko",
+            model="Cryptocurrency Tracker",
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return bool(
+            self.coordinator.last_update_success
+            and self.coordinator.data
+            and self.cryptocurrency_id in self.coordinator.data
+        )
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return the derived metric value."""
+        data = self.coordinator.data.get(self.cryptocurrency_id) if self.coordinator.data else None
+        if not data:
+            return None
+        try:
+            value = self.entity_description.value_fn(data)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
