@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -e
+echo "Release via release-please : mergez la Release PR « chore(main): release X.Y.Z »."
+echo "Alternative : gh workflow run release.yml"

@@ -2,73 +2,73 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Create Release
+  release-please:
+    name: Open / maintain Release PR
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
+      - uses: googleapis/release-please-action@v5
+        id: release
         with:
-          fetch-depth: 0
+          release-type: simple
+          package-name: cryptoinfo
+          extra-files: |
+            custom_components/cryptoinfo/manifest.json
 
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+  publish-assets:
+    name: Build + upload zip
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
-      - name: Verify manifest version matches tag
+      - name: Verify manifest version matches release
         run: |
           MANIFEST_VERSION=$(python -c "import json; print(json.load(open('custom_components/cryptoinfo/manifest.json'))['version'])")
-          TAG_VERSION=${{ steps.version.outputs.version }}
-          if [ "$MANIFEST_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: manifest.json version ($MANIFEST_VERSION) does not match tag version ($TAG_VERSION)"
+          RELEASE_VERSION=${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION=${RELEASE_VERSION#v}
+          if [ "$MANIFEST_VERSION" != "$RELEASE_VERSION" ]; then
+            echo "Error: manifest.json version ($MANIFEST_VERSION) does not match release ($RELEASE_VERSION)"
             exit 1
           fi
-          echo "Version verified: $TAG_VERSION"
+          echo "Version verified: $RELEASE_VERSION"
 
-      - name: Generate changelog
-        id: changelog
-        uses: mikepenz/release-changelog-builder-action@v6
-        with:
-          configuration: |
-            {
-              "categories": [
-                {
-                  "title": "## Features",
-                  "labels": ["feature", "enhancement"]
-                },
-                {
-                  "title": "## Bug Fixes",
-                  "labels": ["bug", "fix"]
-                },
-                {
-                  "title": "## Maintenance",
-                  "labels": ["chore", "maintenance", "dependencies"]
-                }
-              ],
-              "template": "#{{CHANGELOG}}\n\n**Full Changelog**: #{{RELEASE_DIFF}}"
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create release archive
+      - name: Build release archive
         run: |
           cd custom_components/cryptoinfo
           zip -r ../../cryptoinfo.zip . -x '*.pyc' '*/__pycache__/*'
+          cd ../..
+          sha256sum cryptoinfo.zip > cryptoinfo.zip.sha256
 
-      - name: Create GitHub Release
+      - name: Upload assets to release
         uses: softprops/action-gh-release@v3
         with:
-          name: v${{ steps.version.outputs.version }}
-          body: ${{ steps.changelog.outputs.changelog }}
-          files: cryptoinfo.zip
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            cryptoinfo.zip
+            cryptoinfo.zip.sha256
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
