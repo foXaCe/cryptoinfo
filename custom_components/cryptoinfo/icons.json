@@ -1,9 +1,105 @@
 {
-    "entity": {
-        "sensor": {
-            "crypto_price": {
-                "default": "mdi:bitcoin"
-            }
-        }
+  "entity": {
+    "sensor": {
+      "crypto_price": {
+        "default": "mdi:bitcoin"
+      },
+      "crypto_market_cap": {
+        "default": "mdi:chart-donut"
+      },
+      "crypto_volume_24h": {
+        "default": "mdi:swap-horizontal"
+      },
+      "crypto_change_1h": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_change_24h": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_change_7d": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_change_14d": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_change_30d": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_change_1y": {
+        "default": "mdi:chart-line"
+      },
+      "crypto_circulating_supply": {
+        "default": "mdi:database"
+      },
+      "crypto_total_supply": {
+        "default": "mdi:layers"
+      },
+      "crypto_ath": {
+        "default": "mdi:trophy"
+      },
+      "crypto_ath_change": {
+        "default": "mdi:chart-arc"
+      },
+      "crypto_rank": {
+        "default": "mdi:podium"
+      },
+      "network_difficulty": {
+        "default": "mdi:gauge"
+      },
+      "network_block_height": {
+        "default": "mdi:stairs"
+      },
+      "network_next_difficulty_block": {
+        "default": "mdi:gauge"
+      },
+      "network_blocks_until_retarget": {
+        "default": "mdi:counter"
+      },
+      "network_difficulty_change": {
+        "default": "mdi:gauge"
+      },
+      "network_next_halving_block": {
+        "default": "mdi:bitcoin"
+      },
+      "network_blocks_until_halving": {
+        "default": "mdi:counter"
+      },
+      "mempool_mb": {
+        "default": "mdi:database"
+      },
+      "mempool_fee_fastest": {
+        "default": "mdi:lightning-bolt"
+      },
+      "mempool_fee_half_hour": {
+        "default": "mdi:lightning-bolt"
+      },
+      "mempool_fee_hour": {
+        "default": "mdi:lightning-bolt"
+      },
+      "mempool_fee_economy": {
+        "default": "mdi:lightning-bolt"
+      },
+      "mempool_fee_minimum": {
+        "default": "mdi:lightning-bolt"
+      },
+      "ckpool_hashrate_1h": {
+        "default": "mdi:pickaxe"
+      },
+      "ckpool_hashrate_24h": {
+        "default": "mdi:pickaxe"
+      },
+      "ckpool_best_share": {
+        "default": "mdi:trophy-outline"
+      },
+      "ckpool_best_ever": {
+        "default": "mdi:trophy"
+      },
+      "ckpool_workers": {
+        "default": "mdi:account-group"
+      },
+      "ckpool_blocks_found": {
+        "default": "mdi:cube"
+      }
     }
+  }
 }
