@@ -129,6 +129,38 @@ async def test_derived_sensor_unique_id_pattern(hass: HomeAssistant) -> None:
     assert derived.unique_id == "cryptoinfo_default_bitcoin_usd_market_cap"
 
 
+async def test_derived_sensor_native_value_edge_cases(hass: HomeAssistant) -> None:
+    """Derived sensors return None on missing/boolean/unparsable values."""
+    sensor = _make_sensor(hass)
+    sensor.coordinator.data = {"bitcoin": dict(MARKETS_RESPONSE[0])}
+    sensor.coordinator.last_update_success = True
+
+    from collections.abc import Callable
+
+    from custom_components.cryptoinfo.sensor_descriptions import CryptoSensorEntityDescription
+
+    def make_derived(value_fn: Callable[[dict[str, object]], object]) -> CryptoinfoDerivedSensor:
+        return CryptoinfoDerivedSensor(
+            coordinator=sensor.coordinator,
+            description=CryptoSensorEntityDescription(
+                key="edge", translation_key="crypto_market_cap", value_fn=value_fn
+            ),
+            cryptocurrency_id="bitcoin",
+            currency_name="usd",
+            unit_of_measurement="$",
+            base_unique_id="cryptoinfo_default_bitcoin_usd",
+            id_name="",
+        )
+
+    assert make_derived(lambda d: True).native_value is None  # bool
+    assert make_derived(lambda d: None).native_value is None  # None
+    assert make_derived(lambda d: "not-a-number").native_value is None  # unparsable -> ValueError
+    assert make_derived(lambda d: {"key": None}["missing"]).native_value is None  # KeyError
+    # coin absent from data
+    sensor.coordinator.data = {"ethereum": {}}
+    assert make_derived(lambda d: 42).native_value is None  # bitcoin missing
+
+
 async def test_options_override_update_frequency(
     hass: HomeAssistant,
     mock_coingecko: AiohttpClientMocker,
