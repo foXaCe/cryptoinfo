@@ -465,6 +465,67 @@ async def test_reconfigure_add_price(
     assert result["step_id"] == "price_search"
 
 
+async def test_reconfigure_mining_missing_address(
+    hass: HomeAssistant,
+    bypass_setup: None,
+) -> None:
+    """A CKPool reconfigure without a BTC address surfaces btc_address_required."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="CKPool Mining",
+        data={
+            "sensor_type": "ckpool_mining",
+            "id": "miner",
+            "update_frequency": 5,
+        },
+        unique_id="ckpool_noaddr",
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"action": "modify"})
+    assert result["step_id"] == "reconfigure_mining"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"id": "miner", "btc_address": "", "ckpool_region": "solo.ckpool.org", "update_frequency": 10},
+    )
+    assert result["step_id"] == "reconfigure_mining"
+    assert result["errors"]["base"] == "btc_address_required"
+
+
+async def test_reconfigure_select_no_results(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    bypass_setup: None,
+) -> None:
+    """A reconfigure search with no matches surfaces no_results."""
+    aioclient_mock.get(f"{API_ENDPOINT}coins/list", json=[{"id": "bitcoin", "name": "Bitcoin", "symbol": "btc"}])
+    entry = make_price_entry(cryptocurrency_ids="")
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"action": "modify"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"search_query": "zzz-no-match"})
+    assert result["step_id"] == "reconfigure_price"
+    assert result["errors"]["base"] == "no_results"
+
+
+async def test_reauth_api_exception(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    bypass_setup: None,
+) -> None:
+    """Reauth surfaces an error when the API call raises."""
+    with patch(
+        "custom_components.cryptoinfo.api.coingecko_api.CoinGeckoAPI.get_coin_list",
+        side_effect=Exception("boom"),
+    ):
+        entry = make_price_entry()
+        entry.add_to_hass(hass)
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"]["base"] == "api_error"
+
+
 async def test_options_flow(
     hass: HomeAssistant,
     price_config_entry: MockConfigEntry,

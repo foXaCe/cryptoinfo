@@ -130,6 +130,9 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._config_data["search_query"] = search_query
             return await self.async_step_reconfigure_select()
 
+        # Errors surfaced by downstream steps (e.g. no_results) are replayed here.
+        errors: dict[str, str] = dict(self._config_data.pop("reconfigure_errors", {}))
+
         # Show search form
         search_schema = vol.Schema(
             {
@@ -143,7 +146,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure_price",
             data_schema=search_schema,
-            errors={},
+            errors=errors,
             description_placeholders={
                 "info": "Search for cryptocurrencies to add or modify. Leave empty to see top 10 by market cap."
             },
@@ -284,7 +287,7 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         crypto_options = {coin["id"]: f"{coin['name']} ({coin['symbol'].upper()})" for coin in filtered_coins}
 
         if not crypto_options:
-            errors["base"] = "no_results"
+            self._config_data["reconfigure_errors"] = {"base": "no_results"}
             return await self.async_step_reconfigure_price()
 
         # Preselect ONLY existing cryptocurrencies
