@@ -60,3 +60,4 @@ home-assistant.log
 .env
 .envrc
 secrets.yaml
+cryptoinfo.zip
