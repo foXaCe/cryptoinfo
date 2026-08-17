@@ -33,7 +33,7 @@ repos:
       - id: codespell
         args:
           - --skip=*.json,*.lock
-          - --ignore-words-list=hass,sais,adresses,celles,projet,mesure,symbole,symboles,limite,attributs,exemple,readded,composant,branche,branches,persistance
+          - --ignore-words-list=hass,sais,adresses,celles,projet,mesure,symbole,symboles,limite,attributs,exemple,readded,composant,branche,branches,persistance,fontions,fontion,onction,fonction,fonctions
 
 ci:
   autofix_commit_msg: "style: auto-fix by pre-commit hooks"
