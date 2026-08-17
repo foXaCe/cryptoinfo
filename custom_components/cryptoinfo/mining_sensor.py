@@ -31,6 +31,7 @@ from .const import (
     SENSOR_TYPE_BTC_MEMPOOL,
     SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
+    CryptoInfoConfigEntry,
 )
 from .sensor_descriptions import (
     CKPOOL_DESCRIPTIONS,
@@ -56,6 +57,7 @@ async def async_setup_mining_sensors(
     hass: HomeAssistant,
     config: dict[str, Any],
     async_add_entities: AddEntitiesCallback,
+    entry: CryptoInfoConfigEntry,
 ) -> bool:
     """Set up mining sensors based on sensor type."""
     sensor_type = config.get(CONF_SENSOR_TYPE)
@@ -64,16 +66,24 @@ async def async_setup_mining_sensors(
 
     if sensor_type == SENSOR_TYPE_BTC_NETWORK:
         network_coordinator = BTCNetworkCoordinator(hass, update_frequency)
-        await network_coordinator.async_config_entry_first_refresh()
         async_add_entities(
             [BTCNetworkSensor(network_coordinator, id_name), *network_derived_sensors(network_coordinator, id_name)]
+        )
+        entry.async_create_background_task(
+            hass,
+            network_coordinator.async_refresh(),
+            f"{DOMAIN} network refresh {entry.entry_id}",
         )
 
     elif sensor_type == SENSOR_TYPE_BTC_MEMPOOL:
         mempool_coordinator = BTCMempoolCoordinator(hass, update_frequency)
-        await mempool_coordinator.async_config_entry_first_refresh()
         async_add_entities(
             [BTCMempoolSensor(mempool_coordinator, id_name), *mempool_derived_sensors(mempool_coordinator, id_name)]
+        )
+        entry.async_create_background_task(
+            hass,
+            mempool_coordinator.async_refresh(),
+            f"{DOMAIN} mempool refresh {entry.entry_id}",
         )
 
     elif sensor_type == SENSOR_TYPE_CKPOOL_MINING:
@@ -83,12 +93,16 @@ async def async_setup_mining_sensors(
             return False
         pool_region = config.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
         ckpool_coordinator = CKPoolCoordinator(hass, btc_address, pool_region, update_frequency)
-        await ckpool_coordinator.async_config_entry_first_refresh()
         async_add_entities(
             [
                 CKPoolMiningSensor(ckpool_coordinator, id_name, btc_address),
                 *ckpool_derived_sensors(ckpool_coordinator, btc_address),
             ]
+        )
+        entry.async_create_background_task(
+            hass,
+            ckpool_coordinator.async_refresh(),
+            f"{DOMAIN} ckpool refresh {entry.entry_id}",
         )
 
     return True

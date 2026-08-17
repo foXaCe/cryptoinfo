@@ -65,7 +65,7 @@ async def async_setup_entry(
     if sensor_type in (SENSOR_TYPE_BTC_NETWORK, SENSOR_TYPE_BTC_MEMPOOL, SENSOR_TYPE_CKPOOL_MINING):
         from .mining_sensor import async_setup_mining_sensors
 
-        await async_setup_mining_sensors(hass, config, async_add_entities)
+        await async_setup_mining_sensors(hass, config, async_add_entities, entry)
         return
 
     # Price sensor setup
@@ -96,9 +96,6 @@ async def async_setup_entry(
     # Store coordinator in runtime_data
     entry.runtime_data.coordinator = coordinator
     entry.runtime_data.coordinators[entry.entry_id] = coordinator
-
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
 
     # Create entities
     crypto_list = [crypto.strip() for crypto in cryptocurrency_ids.split(",") if crypto.strip()]
@@ -139,6 +136,13 @@ async def async_setup_entry(
             )
 
     async_add_entities(entities)
+
+    # First refresh in background: never block entry setup on network I/O.
+    entry.async_create_background_task(
+        hass,
+        coordinator.async_refresh(),
+        f"{DOMAIN} price refresh {entry.entry_id}",
+    )
 
 
 class CryptoinfoSensor(CoordinatorEntity[CryptoDataCoordinator], SensorEntity):
