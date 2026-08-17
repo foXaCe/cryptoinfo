@@ -1,6 +1,6 @@
 [project]
 name = "cryptoinfo"
-version = "1.8.4"
+version = "1.9.0"
 description = "Home Assistant integration for cryptocurrency information"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
