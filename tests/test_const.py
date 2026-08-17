@@ -1,6 +1,6 @@
 """Test Cryptoinfo constants."""
 
-from custom_components.cryptoinfo.const.const import DOMAIN
+from custom_components.cryptoinfo.const import DOMAIN
 
 
 def test_domain_value() -> None:

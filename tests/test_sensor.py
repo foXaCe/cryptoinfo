@@ -9,12 +9,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import (
+from custom_components.cryptoinfo.api.coingecko_api import CoinGeckoAPI
+from custom_components.cryptoinfo.const import (
     CONF_UPDATE_FREQUENCY,
     DOMAIN,
 )
 from custom_components.cryptoinfo.coordinator import CryptoDataCoordinator
-from custom_components.cryptoinfo.helper.coingecko_api import CoinGeckoAPI
 from custom_components.cryptoinfo.sensor import CryptoinfoDerivedSensor, CryptoinfoSensor
 
 from .conftest import MARKETS_RESPONSE, make_price_entry

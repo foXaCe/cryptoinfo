@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.helper.blockchain_api import (
+from custom_components.cryptoinfo.api.blockchain_api import (
     BlockchainAPI,
     CKPoolAPI,
 )

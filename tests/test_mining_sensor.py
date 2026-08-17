@@ -8,7 +8,7 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import DOMAIN
+from custom_components.cryptoinfo.const import DOMAIN
 from custom_components.cryptoinfo.mining_sensor import CKPoolMiningSensor
 
 
@@ -154,7 +154,7 @@ async def test_mining_coordinator_timeouts(hass: HomeAssistant) -> None:
     from homeassistant.helpers.update_coordinator import UpdateFailed
     import pytest
 
-    from custom_components.cryptoinfo.helper.blockchain_api import BlockchainAPI, CKPoolAPI
+    from custom_components.cryptoinfo.api.blockchain_api import BlockchainAPI, CKPoolAPI
     from custom_components.cryptoinfo.mining_sensor import (
         BTCMempoolCoordinator,
         BTCNetworkCoordinator,

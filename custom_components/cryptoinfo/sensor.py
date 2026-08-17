@@ -10,7 +10,7 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const.const import (
+from .const import (
     ATTR_CRYPTOCURRENCY_ID,
     ATTR_CRYPTOCURRENCY_NAME,
     ATTR_CRYPTOCURRENCY_SYMBOL,
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-    from .const.const import CryptoInfoConfigEntry
+    from .const import CryptoInfoConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 

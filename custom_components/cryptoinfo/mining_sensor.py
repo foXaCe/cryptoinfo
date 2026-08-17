@@ -18,7 +18,8 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const.const import (
+from .api.blockchain_api import BlockchainAPI, CKPoolAPI
+from .const import (
     CKPOOL_REGION_EU,
     CONF_BTC_ADDRESS,
     CONF_CKPOOL_REGION,
@@ -31,7 +32,6 @@ from .const.const import (
     SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
 )
-from .helper.blockchain_api import BlockchainAPI, CKPoolAPI
 from .sensor_descriptions import (
     CKPOOL_DESCRIPTIONS,
     MINING_MEMPOOL_DESCRIPTIONS,

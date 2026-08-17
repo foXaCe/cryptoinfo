@@ -8,15 +8,15 @@ from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import API_ENDPOINT
+from custom_components.cryptoinfo.api.coingecko_api import (
+    CIRCUIT_BREAKER_THRESHOLD,
+    CoinGeckoAPI,
+)
+from custom_components.cryptoinfo.const import API_ENDPOINT
 from custom_components.cryptoinfo.exceptions import (
     CryptoInfoConnectionError,
     CryptoInfoInvalidResponseError,
     CryptoInfoRateLimitError,
-)
-from custom_components.cryptoinfo.helper.coingecko_api import (
-    CIRCUIT_BREAKER_THRESHOLD,
-    CoinGeckoAPI,
 )
 
 from .conftest import COIN_LIST_RESPONSE, MARKETS_RESPONSE

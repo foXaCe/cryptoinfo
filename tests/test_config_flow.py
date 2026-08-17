@@ -13,7 +13,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import API_ENDPOINT, DOMAIN
+from custom_components.cryptoinfo.const import API_ENDPOINT, DOMAIN
 
 from .conftest import make_price_entry
 

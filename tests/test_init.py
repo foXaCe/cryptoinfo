@@ -11,7 +11,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.cryptoinfo import async_migrate_entry
-from custom_components.cryptoinfo.const.const import DOMAIN, CryptoInfoRuntimeData
+from custom_components.cryptoinfo.const import DOMAIN, CryptoInfoRuntimeData
 from custom_components.cryptoinfo.exceptions import CryptoInfoConnectionError
 
 

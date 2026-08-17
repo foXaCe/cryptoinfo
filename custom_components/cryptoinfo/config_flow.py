@@ -7,14 +7,16 @@ Author: Johnny Visser
 from __future__ import annotations
 
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 from homeassistant import config_entries
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 import voluptuous as vol
 
-from .const.const import (
-    _LOGGER,
+from .api.coingecko_api import CoinGeckoAPI
+from .api.crypto_info_data import CryptoInfoData
+from .const import (
     CKPOOL_REGION_EU,
     CKPOOL_REGION_GLOBAL,
     CONF_BTC_ADDRESS,
@@ -33,9 +35,10 @@ from .const.const import (
     SENSOR_TYPE_CKPOOL_MINING,
     SENSOR_TYPE_PRICE,
 )
-from .helper.coingecko_api import CoinGeckoAPI
-from .helper.crypto_info_data import CryptoInfoData
 from .helpers import build_price_unique_id
+from .options_flow import CryptoInfoOptionsFlow
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -793,50 +796,3 @@ class CryptoInfoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.OptionsFlow:
         """Get the options flow for this handler."""
         return CryptoInfoOptionsFlow()
-
-
-class CryptoInfoOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Cryptoinfo."""
-
-    VERSION = 1
-
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
-        """Manage the options."""
-        errors: dict[str, str] = {}
-        entry = self.config_entry
-        sensor_type = entry.data.get(CONF_SENSOR_TYPE, SENSOR_TYPE_PRICE)
-
-        if user_input is not None:
-            # Update options
-            return self.async_create_entry(title="", data=user_input)
-
-        # Get current values
-        current_update_freq = entry.data.get(CONF_UPDATE_FREQUENCY, 5)
-
-        options_schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_UPDATE_FREQUENCY,
-                    default=entry.options.get(CONF_UPDATE_FREQUENCY, current_update_freq),
-                ): cv.positive_float,
-            }
-        )
-
-        # Add min_time option only for price sensors
-        if sensor_type == SENSOR_TYPE_PRICE:
-            current_min_time = entry.data.get(CONF_MIN_TIME_BETWEEN_REQUESTS, 0.25)
-            options_schema = options_schema.extend(
-                {
-                    vol.Required(
-                        CONF_MIN_TIME_BETWEEN_REQUESTS,
-                        default=entry.options.get(CONF_MIN_TIME_BETWEEN_REQUESTS, current_min_time),
-                    ): cv.positive_float,
-                }
-            )
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=options_schema,
-            errors=errors,
-            description_placeholders={"info": "Configure update intervals for this sensor."},
-        )

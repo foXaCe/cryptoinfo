@@ -10,7 +10,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import (
+from custom_components.cryptoinfo.const import (
     API_ENDPOINT,
     CONF_BTC_ADDRESS,
     CONF_CKPOOL_REGION,
@@ -41,8 +41,8 @@ def auto_enable_custom_integrations(enable_custom_integrations: Any) -> None:
 def no_sleep() -> Generator[None]:
     """Skip retry/backoff sleeps in the API helpers to keep tests fast."""
     with (
-        patch("custom_components.cryptoinfo.helper.coingecko_api.asyncio.sleep", AsyncMock()),
-        patch("custom_components.cryptoinfo.helper.blockchain_api.asyncio.sleep", AsyncMock()),
+        patch("custom_components.cryptoinfo.api.coingecko_api.asyncio.sleep", AsyncMock()),
+        patch("custom_components.cryptoinfo.api.blockchain_api.asyncio.sleep", AsyncMock()),
     ):
         yield
 
