@@ -11,6 +11,8 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.cryptoinfo.const import DOMAIN
 from custom_components.cryptoinfo.mining_sensor import CKPoolMiningSensor
 
+from .conftest import wait_for_state
+
 
 async def test_btc_network_sensor(
     hass: HomeAssistant,
@@ -25,17 +27,18 @@ async def test_btc_network_sensor(
     ent_reg = er.async_get(hass)
     entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_network_")
     assert entity_id is not None
-    state = hass.states.get(entity_id)
-    assert state is not None
+    state = await wait_for_state(hass, entity_id)
     assert float(state.state) == 600.0  # 6e20 H/s -> 600 EH/s
 
     # Metrics are now dedicated derived entities
     block_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_network__block_height")
     assert block_entity is not None
-    assert float(hass.states.get(block_entity).state) == 870000
+    block_state = await wait_for_state(hass, block_entity)
+    assert float(block_state.state) == 870000
     halving_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_network__blocks_until_halving")
     assert halving_entity is not None
-    assert float(hass.states.get(halving_entity).state) == 210000 * 5 - 870000
+    halving_state = await wait_for_state(hass, halving_entity)
+    assert float(halving_state.state) == 210000 * 5 - 870000
 
 
 async def test_btc_mempool_sensor(
@@ -51,19 +54,19 @@ async def test_btc_mempool_sensor(
     ent_reg = er.async_get(hass)
     entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_mempool_")
     assert entity_id is not None
-    state = hass.states.get(entity_id)
-    assert state is not None
+    state = await wait_for_state(hass, entity_id)
     assert int(state.state) == 12000
 
     # Metrics are now dedicated derived entities
     fee_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_mempool__fee_fastest")
     assert fee_entity is not None
-    fee_state = hass.states.get(fee_entity)
+    fee_state = await wait_for_state(hass, fee_entity)
     assert float(fee_state.state) == 20.0
     assert fee_state.attributes["unit_of_measurement"] == "sat/vB"
     mempool_mb_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_btc_mempool__mempool_mb")
     assert mempool_mb_entity is not None
-    assert float(hass.states.get(mempool_mb_entity).state) == 5.0
+    mempool_mb_state = await wait_for_state(hass, mempool_mb_entity)
+    assert float(mempool_mb_state.state) == 5.0
 
 
 async def test_ckpool_sensor_global_json(
@@ -93,14 +96,14 @@ async def test_ckpool_sensor_global_json(
     ent_reg = er.async_get(hass)
     entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_ckpool_bc1qexam")
     assert entity_id is not None
-    state = hass.states.get(entity_id)
-    assert state is not None
+    state = await wait_for_state(hass, entity_id)
     assert float(state.state) == 3120.0  # 3.12T -> 3120 GH/s
 
     # Workers is now a dedicated derived entity
     workers_entity = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_ckpool_bc1qexam_workers")
     assert workers_entity is not None
-    assert float(hass.states.get(workers_entity).state) == 2
+    workers_state = await wait_for_state(hass, workers_entity)
+    assert float(workers_state.state) == 2
 
 
 async def test_ckpool_missing_address_fails_setup(
