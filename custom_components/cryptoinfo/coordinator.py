@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const.const import DOMAIN
+from .const import DOMAIN
 from .exceptions import CryptoInfoError, CryptoInfoRateLimitError
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant
 
-    from .helper.coingecko_api import CoinGeckoAPI
+    from .api.coingecko_api import CoinGeckoAPI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class CryptoDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             data = await self.api.get_coins_markets(self.cryptocurrency_ids, self.currency_name)
         except CryptoInfoRateLimitError as err:
-            raise UpdateFailed(f"Rate limited by CoinGecko: {err}") from err
+            raise UpdateFailed(f"Rate limited by CoinGecko: {err}", retry_after=err.retry_after) from err
         except CryptoInfoError as err:
             raise UpdateFailed(f"Error fetching data from CoinGecko: {err}") from err
 

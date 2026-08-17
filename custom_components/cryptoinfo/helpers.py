@@ -6,7 +6,7 @@ testable in isolation.
 
 from __future__ import annotations
 
-from .const.const import SENSOR_PREFIX
+from .const import SENSOR_PREFIX
 
 
 def build_price_unique_id(id_name: str, cryptocurrency_id: str, currency_name: str) -> str:

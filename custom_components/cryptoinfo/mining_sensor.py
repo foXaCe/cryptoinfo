@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -17,8 +18,8 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from .const.const import (
-    _LOGGER,
+from .api.blockchain_api import BlockchainAPI, CKPoolAPI
+from .const import (
     CKPOOL_REGION_EU,
     CONF_BTC_ADDRESS,
     CONF_CKPOOL_REGION,
@@ -30,12 +31,20 @@ from .const.const import (
     SENSOR_TYPE_BTC_MEMPOOL,
     SENSOR_TYPE_BTC_NETWORK,
     SENSOR_TYPE_CKPOOL_MINING,
+    CryptoInfoConfigEntry,
 )
-from .helper.blockchain_api import BlockchainAPI, CKPoolAPI
+from .sensor_descriptions import (
+    CKPOOL_DESCRIPTIONS,
+    MINING_MEMPOOL_DESCRIPTIONS,
+    MINING_NETWORK_DESCRIPTIONS,
+    CryptoSensorEntityDescription,
+)
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+_LOGGER = logging.getLogger(__name__)
 
 # Coordinator-driven entities do not perform their own I/O.
 PARALLEL_UPDATES = 0
@@ -48,6 +57,7 @@ async def async_setup_mining_sensors(
     hass: HomeAssistant,
     config: dict[str, Any],
     async_add_entities: AddEntitiesCallback,
+    entry: CryptoInfoConfigEntry,
 ) -> bool:
     """Set up mining sensors based on sensor type."""
     sensor_type = config.get(CONF_SENSOR_TYPE)
@@ -56,13 +66,25 @@ async def async_setup_mining_sensors(
 
     if sensor_type == SENSOR_TYPE_BTC_NETWORK:
         network_coordinator = BTCNetworkCoordinator(hass, update_frequency)
-        await network_coordinator.async_config_entry_first_refresh()
-        async_add_entities([BTCNetworkSensor(network_coordinator, id_name)])
+        async_add_entities(
+            [BTCNetworkSensor(network_coordinator, id_name), *network_derived_sensors(network_coordinator, id_name)]
+        )
+        entry.async_create_background_task(
+            hass,
+            network_coordinator.async_refresh(),
+            f"{DOMAIN} network refresh {entry.entry_id}",
+        )
 
     elif sensor_type == SENSOR_TYPE_BTC_MEMPOOL:
         mempool_coordinator = BTCMempoolCoordinator(hass, update_frequency)
-        await mempool_coordinator.async_config_entry_first_refresh()
-        async_add_entities([BTCMempoolSensor(mempool_coordinator, id_name)])
+        async_add_entities(
+            [BTCMempoolSensor(mempool_coordinator, id_name), *mempool_derived_sensors(mempool_coordinator, id_name)]
+        )
+        entry.async_create_background_task(
+            hass,
+            mempool_coordinator.async_refresh(),
+            f"{DOMAIN} mempool refresh {entry.entry_id}",
+        )
 
     elif sensor_type == SENSOR_TYPE_CKPOOL_MINING:
         btc_address = (config.get(CONF_BTC_ADDRESS) or "").strip()
@@ -71,10 +93,59 @@ async def async_setup_mining_sensors(
             return False
         pool_region = config.get(CONF_CKPOOL_REGION, CKPOOL_REGION_EU)
         ckpool_coordinator = CKPoolCoordinator(hass, btc_address, pool_region, update_frequency)
-        await ckpool_coordinator.async_config_entry_first_refresh()
-        async_add_entities([CKPoolMiningSensor(ckpool_coordinator, id_name, btc_address)])
+        async_add_entities(
+            [
+                CKPoolMiningSensor(ckpool_coordinator, id_name, btc_address),
+                *ckpool_derived_sensors(ckpool_coordinator, btc_address),
+            ]
+        )
+        entry.async_create_background_task(
+            hass,
+            ckpool_coordinator.async_refresh(),
+            f"{DOMAIN} ckpool refresh {entry.entry_id}",
+        )
 
     return True
+
+
+def network_derived_sensors(coordinator: BTCNetworkCoordinator, id_name: str) -> list[SensorEntity]:
+    """Build the derived Bitcoin network sensors."""
+    base = f"{SENSOR_PREFIX}btc_network_{id_name}".lower().replace(" ", "_")
+    device_info = DeviceInfo(
+        identifiers={(DOMAIN, "btc_network")},
+        name="Bitcoin Network",
+        manufacturer="Bitcoin",
+        model="Network Statistics",
+    )
+    return [
+        MiningDerivedSensor(coordinator, description, base, device_info) for description in MINING_NETWORK_DESCRIPTIONS
+    ]
+
+
+def mempool_derived_sensors(coordinator: BTCMempoolCoordinator, id_name: str) -> list[SensorEntity]:
+    """Build the derived Bitcoin mempool sensors."""
+    base = f"{SENSOR_PREFIX}btc_mempool_{id_name}".lower().replace(" ", "_")
+    device_info = DeviceInfo(
+        identifiers={(DOMAIN, "btc_mempool")},
+        name="Bitcoin Mempool",
+        manufacturer="Bitcoin",
+        model="Mempool Statistics",
+    )
+    return [
+        MiningDerivedSensor(coordinator, description, base, device_info) for description in MINING_MEMPOOL_DESCRIPTIONS
+    ]
+
+
+def ckpool_derived_sensors(coordinator: CKPoolCoordinator, btc_address: str) -> list[SensorEntity]:
+    """Build the derived CKPool mining sensors."""
+    base = f"{SENSOR_PREFIX}ckpool_{btc_address[:8]}".lower().replace(" ", "_")
+    device_info = DeviceInfo(
+        identifiers={(DOMAIN, f"ckpool_{btc_address[:8]}")},
+        name=f"CKPool Mining {btc_address[:8]}...",
+        manufacturer="CKPool",
+        model="Solo Mining",
+    )
+    return [MiningDerivedSensor(coordinator, description, base, device_info) for description in CKPOOL_DESCRIPTIONS]
 
 
 class BTCNetworkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -180,23 +251,6 @@ class BTCNetworkSensor(CoordinatorEntity[BTCNetworkCoordinator], SensorEntity):
             return round(float(self.coordinator.data.get("hashrate", 0)), 2)
         return None
 
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional attributes."""
-        if not self.coordinator.data:
-            return {}
-
-        data = self.coordinator.data
-        return {
-            "difficulty": data.get("difficulty", 0),
-            "block_height": data.get("block_height", 0),
-            "next_difficulty_block": data.get("next_difficulty_block", 0),
-            "blocks_until_retarget": data.get("blocks_until_retarget", 0),
-            "difficulty_change": f"{data.get('difficulty_change', 0):.2f}%",
-            "next_halving_block": data.get("next_halving_block", 0),
-            "blocks_until_halving": data.get("blocks_until_halving", 0),
-        }
-
 
 class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
     """Bitcoin Mempool Statistics Sensor."""
@@ -229,22 +283,6 @@ class BTCMempoolSensor(CoordinatorEntity[BTCMempoolCoordinator], SensorEntity):
         if self.coordinator.data:
             return int(self.coordinator.data.get("mempool_size", 0))
         return None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional attributes."""
-        if not self.coordinator.data:
-            return {}
-
-        data = self.coordinator.data
-        return {
-            "mempool_mb": round(data.get("mempool_bytes", 0), 2),
-            "fee_fastest": f"{data.get('fee_fastest', 0)} sat/vB",
-            "fee_half_hour": f"{data.get('fee_half_hour', 0)} sat/vB",
-            "fee_hour": f"{data.get('fee_hour', 0)} sat/vB",
-            "fee_economy": f"{data.get('fee_economy', 0)} sat/vB",
-            "fee_minimum": f"{data.get('fee_minimum', 0)} sat/vB",
-        }
 
 
 class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
@@ -282,28 +320,49 @@ class CKPoolMiningSensor(CoordinatorEntity[CKPoolCoordinator], SensorEntity):
         return None
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional attributes."""
-        if not self.coordinator.data:
-            return {}
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Return identity attributes."""
+        return {"btc_address": self.btc_address}
 
+
+class MiningDerivedSensor(CoordinatorEntity[DataUpdateCoordinator[dict[str, Any]]], SensorEntity):
+    """A derived metric sensor for mining statistics."""
+
+    _attr_has_entity_name = True
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    entity_description: CryptoSensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator[dict[str, Any]],
+        description: CryptoSensorEntityDescription,
+        base_unique_id: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        """Initialize the derived mining sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{base_unique_id}_{description.key}"
+        self._attr_device_info = device_info
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.coordinator.last_update_success and bool(self.coordinator.data)
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return the derived metric value."""
         data = self.coordinator.data
-
-        return {
-            "btc_address": self.btc_address,
-            "hashrate_1h": round(data.get("hashrate_1h", 0), 2),
-            "hashrate_24h": round(data.get("hashrate_24h", 0), 2),
-            "best_share": self._format_share(data.get("best_share", 0)),
-            "best_ever": self._format_share(data.get("best_ever", 0)),
-            "workers": data.get("workers", 0),
-            "blocks_found": data.get("blocks_found", 0),
-        }
-
-    @staticmethod
-    def _format_share(value: float) -> str:
-        """Format a share value with a G/M suffix for display."""
-        if value > 1e9:
-            return f"{value / 1e9:.2f} G"
-        if value > 1e6:
-            return f"{value / 1e6:.2f} M"
-        return f"{value:.0f}"
+        if not data:
+            return None
+        try:
+            value = self.entity_description.value_fn(data)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None

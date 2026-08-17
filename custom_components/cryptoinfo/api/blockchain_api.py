@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+import logging
 import re
 from typing import TYPE_CHECKING, Any, cast
 
 import aiohttp
 from homeassistant.helpers import aiohttp_client
 
-from ..const.const import _LOGGER
 from ..exceptions import (
     CryptoInfoConnectionError,
     CryptoInfoInvalidResponseError,
@@ -21,6 +21,8 @@ from ..exceptions import (
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 MEMPOOL_SPACE_API = "https://mempool.space/api"
 DEFAULT_TIMEOUT = 30

@@ -11,8 +11,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.cryptoinfo import async_migrate_entry
-from custom_components.cryptoinfo.const.const import DOMAIN, CryptoInfoRuntimeData
+from custom_components.cryptoinfo.const import DOMAIN, CryptoInfoRuntimeData
 from custom_components.cryptoinfo.exceptions import CryptoInfoConnectionError
+
+from .conftest import wait_for_state
 
 
 async def test_setup_and_unload(
@@ -32,8 +34,7 @@ async def test_setup_and_unload(
     ent_reg = er.async_get(hass)
     entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "cryptoinfo_test_bitcoin_usd")
     assert entity_id is not None
-    state = hass.states.get(entity_id)
-    assert state is not None
+    state = await wait_for_state(hass, entity_id)
     assert float(state.state) == 50000.0
     assert state.attributes["cryptocurrency_name"] == "Bitcoin"
 

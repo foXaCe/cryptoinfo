@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from homeassistant.helpers import aiohttp_client
 
-from ..const.const import _LOGGER, API_ENDPOINT
+from ..const import API_ENDPOINT
 from ..exceptions import (
     CryptoInfoConnectionError,
     CryptoInfoInvalidResponseError,
@@ -21,6 +22,8 @@ from ..exceptions import (
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 30
 MAX_RETRIES = 3

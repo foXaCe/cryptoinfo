@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Price sensor metrics promoted from attributes to dedicated entities (market cap, 24h volume, 1h–1y changes, circulating/total supply, ATH, rank) — 13 per tracked coin.
+- Mining metrics as dedicated entities: network (difficulty, block height, retarget, halving), mempool (size, fees), CKPool (hashrates, best share, workers, blocks).
+- `sensor_descriptions.py` module: frozen + kw_only `EntityDescription` with `value_fn` (mandatory since HA 2025.1).
+- 33 entity translation keys (EN + FR, vouvoiement) with `{cryptocurrency}` / `{currency}` placeholders.
+
+### Changed
+
+- Minimum Home Assistant bumped to `2025.11` (`hacs.json`) to unlock `UpdateFailed(retry_after=)` on CoinGecko rate limits.
+- `const/const.py` flattened to `const.py`; `helper/` renamed to `api/`.
+- `CryptoInfoOptionsFlow` extracted from `config_flow.py` into `options_flow.py`.
+- `_LOGGER` no longer lives in `const` (module loggers everywhere) — anti-pattern removed.
+- Price sensor `extra_state_attributes` reduced to identity only (id, name, symbol, currency, multiplier, image).
+
+### Fixed
+
+- Rate-limit backoff now honors CoinGecko `Retry-After` via `UpdateFailed(retry_after=)`.
+
+### Removed
+
+- Client-side share formatting (`_format_share`) — best share/ever exposed as raw numeric sensors.
+
 ## [1.8.3] - 2026-06-25
 
 ### Changed

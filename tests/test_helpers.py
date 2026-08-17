@@ -5,8 +5,8 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant
 import pytest
 
-from custom_components.cryptoinfo.helper.crypto_info_data import CryptoInfoData
-from custom_components.cryptoinfo.helper.storage_helper import (
+from custom_components.cryptoinfo.api.crypto_info_data import CryptoInfoData
+from custom_components.cryptoinfo.api.storage_helper import (
     DEFAULT_MIN_TIME_BETWEEN_REQUESTS,
     CryptoInfoStore,
 )

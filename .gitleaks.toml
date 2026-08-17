@@ -1,0 +1,8 @@
+# Gitleaks allowlist — identifiers in this integration are translation keys,
+# not secrets. The generic-api-key rule matches long alphanumeric values
+# sitting near the word "key" (e.g. translation_key="crypto_volume_24h").
+[allowlist]
+description = "translation_key identifiers in sensor descriptions (not secrets)"
+paths = [
+  "custom_components/cryptoinfo/sensor_descriptions.py",
+]

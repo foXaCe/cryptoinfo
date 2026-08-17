@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const.const import (
+from .const import (
     CONF_BTC_ADDRESS,
     CryptoInfoConfigEntry,
 )

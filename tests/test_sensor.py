@@ -9,13 +9,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import (
+from custom_components.cryptoinfo.api.coingecko_api import CoinGeckoAPI
+from custom_components.cryptoinfo.const import (
     CONF_UPDATE_FREQUENCY,
     DOMAIN,
 )
 from custom_components.cryptoinfo.coordinator import CryptoDataCoordinator
-from custom_components.cryptoinfo.helper.coingecko_api import CoinGeckoAPI
-from custom_components.cryptoinfo.sensor import CryptoinfoSensor
+from custom_components.cryptoinfo.sensor import CryptoinfoDerivedSensor, CryptoinfoSensor
 
 from .conftest import MARKETS_RESPONSE, make_price_entry
 
@@ -74,14 +74,91 @@ async def test_native_value_coin_absent(hass: HomeAssistant) -> None:
 
 
 async def test_extra_state_attributes(hass: HomeAssistant) -> None:
-    """Attributes are mapped from the coordinator payload."""
+    """Only identity attributes remain; metrics are exposed as derived entities."""
     sensor = _make_sensor(hass)
     sensor.coordinator.data = {"bitcoin": dict(MARKETS_RESPONSE[0])}
     sensor.coordinator.last_update_success = True
     attrs = sensor.extra_state_attributes
-    assert attrs["baseprice"] == 50000.0
-    assert attrs["market_cap"] == 950000000000
-    assert attrs["rank"] == 1
+    assert attrs["cryptocurrency_id"] == "bitcoin"
+    assert attrs["cryptocurrency_symbol"] == "btc"
+    # Metrics are no longer attributes
+    assert "baseprice" not in attrs
+    assert "market_cap" not in attrs
+    assert "rank" not in attrs
+
+
+async def test_derived_sensor_native_value(hass: HomeAssistant) -> None:
+    """Derived sensors read their metric from the API record via value_fn."""
+    sensor = _make_sensor(hass)
+    sensor.coordinator.data = {"bitcoin": dict(MARKETS_RESPONSE[0])}
+    sensor.coordinator.last_update_success = True
+
+    from custom_components.cryptoinfo.sensor_descriptions import PRICE_DESCRIPTIONS
+
+    for description in PRICE_DESCRIPTIONS:
+        derived = CryptoinfoDerivedSensor(
+            coordinator=sensor.coordinator,
+            description=description,
+            cryptocurrency_id="bitcoin",
+            currency_name="usd",
+            unit_of_measurement="$",
+            base_unique_id="cryptoinfo_default_bitcoin_usd",
+            id_name="",
+        )
+        value = derived.native_value
+        # market_cap/rank/supplies are numeric; changes/ath too
+        assert value is not None
+        assert isinstance(value, float)
+
+
+async def test_derived_sensor_unique_id_pattern(hass: HomeAssistant) -> None:
+    """Derived unique ids extend the price base id with the metric key."""
+    sensor = _make_sensor(hass)
+
+    from custom_components.cryptoinfo.sensor_descriptions import PRICE_DESCRIPTIONS
+
+    derived = CryptoinfoDerivedSensor(
+        coordinator=sensor.coordinator,
+        description=PRICE_DESCRIPTIONS[0],
+        cryptocurrency_id="bitcoin",
+        currency_name="usd",
+        unit_of_measurement="$",
+        base_unique_id="cryptoinfo_default_bitcoin_usd",
+        id_name="",
+    )
+    assert derived.unique_id == "cryptoinfo_default_bitcoin_usd_market_cap"
+
+
+async def test_derived_sensor_native_value_edge_cases(hass: HomeAssistant) -> None:
+    """Derived sensors return None on missing/boolean/unparsable values."""
+    sensor = _make_sensor(hass)
+    sensor.coordinator.data = {"bitcoin": dict(MARKETS_RESPONSE[0])}
+    sensor.coordinator.last_update_success = True
+
+    from collections.abc import Callable
+
+    from custom_components.cryptoinfo.sensor_descriptions import CryptoSensorEntityDescription
+
+    def make_derived(value_fn: Callable[[dict[str, object]], object]) -> CryptoinfoDerivedSensor:
+        return CryptoinfoDerivedSensor(
+            coordinator=sensor.coordinator,
+            description=CryptoSensorEntityDescription(
+                key="edge", translation_key="crypto_market_cap", value_fn=value_fn
+            ),
+            cryptocurrency_id="bitcoin",
+            currency_name="usd",
+            unit_of_measurement="$",
+            base_unique_id="cryptoinfo_default_bitcoin_usd",
+            id_name="",
+        )
+
+    assert make_derived(lambda d: True).native_value is None  # bool
+    assert make_derived(lambda d: None).native_value is None  # None
+    assert make_derived(lambda d: "not-a-number").native_value is None  # unparsable -> ValueError
+    assert make_derived(lambda d: {"key": None}["missing"]).native_value is None  # KeyError
+    # coin absent from data
+    sensor.coordinator.data = {"ethereum": {}}
+    assert make_derived(lambda d: 42).native_value is None  # bitcoin missing
 
 
 async def test_options_override_update_frequency(

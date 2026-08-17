@@ -10,12 +10,12 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const.const import CryptoInfoRuntimeData
+from .api.crypto_info_data import CryptoInfoData
+from .const import CryptoInfoRuntimeData
 from .exceptions import CryptoInfoConnectionError
-from .helper.crypto_info_data import CryptoInfoData
 
 if TYPE_CHECKING:
-    from .const.const import CryptoInfoConfigEntry
+    from .const import CryptoInfoConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 

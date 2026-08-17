@@ -10,7 +10,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import (
+from custom_components.cryptoinfo.const import (
     API_ENDPOINT,
     CONF_BTC_ADDRESS,
     CONF_CKPOOL_REGION,
@@ -41,8 +41,8 @@ def auto_enable_custom_integrations(enable_custom_integrations: Any) -> None:
 def no_sleep() -> Generator[None]:
     """Skip retry/backoff sleeps in the API helpers to keep tests fast."""
     with (
-        patch("custom_components.cryptoinfo.helper.coingecko_api.asyncio.sleep", AsyncMock()),
-        patch("custom_components.cryptoinfo.helper.blockchain_api.asyncio.sleep", AsyncMock()),
+        patch("custom_components.cryptoinfo.api.coingecko_api.asyncio.sleep", AsyncMock()),
+        patch("custom_components.cryptoinfo.api.blockchain_api.asyncio.sleep", AsyncMock()),
     ):
         yield
 
@@ -168,3 +168,23 @@ def mock_mempool(aioclient_mock: AiohttpClientMocker) -> AiohttpClientMocker:
         json={"fastestFee": 20, "halfHourFee": 15, "hourFee": 10, "economyFee": 5, "minimumFee": 1},
     )
     return aioclient_mock
+
+
+async def wait_for_state(hass: Any, entity_id: str, max_wait: float = 5.0, not_state: str = "unavailable") -> Any:
+    """Wait until an entity leaves the given state (default unavailable).
+
+    The first refresh runs as a background task after setup; this helper makes
+    the tests deterministic regardless of scheduler timing.
+    """
+    import asyncio
+
+    from homeassistant.core import State
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + max_wait
+    while loop.time() < deadline:
+        state: State | None = hass.states.get(entity_id)
+        if state is not None and state.state != not_state:
+            return state
+        await asyncio.sleep(0.02)
+    raise AssertionError(f"Entity {entity_id} still {not_state!r} after {max_wait}s")

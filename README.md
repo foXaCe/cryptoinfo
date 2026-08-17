@@ -133,8 +133,47 @@ To remove the integration: Settings → Devices & Services → **Cryptoinfo**, o
 - **Rate limited** — increase the **Update frequency** / **Minimum time between requests**, or reduce the number of price sensors.
 - **Diagnostics** — download diagnostics from the integration entry (overflow menu) to share sanitized state when opening an issue (your Bitcoin address is redacted).
 
-### Issues and new functionality
-If there are any problems, please create an issue in https://github.com/foXaCe/cryptoinfo/issues
+### Automation examples
+
+Notify when a tracked coin crosses a threshold:
+
+```yaml
+alias: "Bitcoin price above 100k"
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.bitcoin_usd
+    above: 100000
+conditions:
+  - condition: numeric_state
+    entity_id: sensor.bitcoin_usd
+    above: 100000
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: "BTC above $100k!"
+```
+
+Alert on rate limiting or a sensor going unavailable:
+
+```yaml
+alias: "Cryptoinfo sensor unavailable"
+triggers:
+  - trigger: state
+    entity_id: sensor.bitcoin_usd
+    to: unavailable
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: "Bitcoin price sensor is unavailable (API issue?)"
+```
+
+### Use cases
+
+- **Portfolio tracking** — follow several coins from a single entry with per-coin multipliers: configure the amount you hold and each price sensor reflects your holdings.
+- **Market movement watch** — use the derived change entities (`1h`, `24h`, `7d`…) to trigger automations on big moves.
+- **Mining monitoring** — track Bitcoin network difficulty / halving countdown, mempool congestion (fee levels), or your CKPool solo-mining hashrate and workers.
+
+### Issues and new functionalityIf there are any problems, please create an issue in https://github.com/foXaCe/cryptoinfo/issues
 If you want new functionality added, please create an issue with a description of the new functionality that you want in: https://github.com/foXaCe/cryptoinfo/issues
 
 ## Credits

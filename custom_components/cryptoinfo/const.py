@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import logging
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Final, TypeAlias
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
 
-    from ..coordinator import CryptoDataCoordinator
-    from ..helper.crypto_info_data import CryptoInfoData
+    from .api.crypto_info_data import CryptoInfoData
+    from .coordinator import CryptoDataCoordinator
 
-DOMAIN = "cryptoinfo"
+DOMAIN: Final = "cryptoinfo"
 
 # Type alias for typed ConfigEntry (Platinum pattern)
 CryptoInfoConfigEntry: TypeAlias = "ConfigEntry[CryptoInfoRuntimeData]"  # noqa: UP040
@@ -78,5 +77,3 @@ ATTR_RANK = "rank"
 ATTR_IMAGE = "image"
 
 API_ENDPOINT = "https://api.coingecko.com/api/v3/"
-
-_LOGGER = logging.getLogger(__name__)

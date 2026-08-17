@@ -9,9 +9,9 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.cryptoinfo.const.const import API_ENDPOINT
+from custom_components.cryptoinfo.api.coingecko_api import CoinGeckoAPI
+from custom_components.cryptoinfo.const import API_ENDPOINT
 from custom_components.cryptoinfo.coordinator import CryptoDataCoordinator
-from custom_components.cryptoinfo.helper.coingecko_api import CoinGeckoAPI
 
 
 async def test_update_success(hass: HomeAssistant, mock_coingecko: AiohttpClientMocker) -> None:
