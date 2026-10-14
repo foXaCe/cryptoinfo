@@ -11,61 +11,123 @@
   "baseBranchPatterns": [
     "main"
   ],
-  "labels": ["dependencies"],
-  "reviewers": ["foXaCe"],
-  "assignees": ["foXaCe"],
+  "labels": [
+    "dependencies"
+  ],
+  "reviewers": [
+    "foXaCe"
+  ],
+  "assignees": [
+    "foXaCe"
+  ],
   "prConcurrentLimit": 10,
   "prHourlyLimit": 4,
   "rangeStrategy": "bump",
   "rebaseWhen": "behind-base-branch",
   "minimumReleaseAge": "3 days",
   "configMigration": true,
-  "dependencyDashboardTitle": "📦 Renovate Dependency Dashboard",
-  "pre-commit": { "enabled": true },
+  "dependencyDashboardTitle": "\ud83d\udce6 Renovate Dependency Dashboard",
+  "pre-commit": {
+    "enabled": true
+  },
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 6am on monday"]
+    "schedule": [
+      "before 6am on monday"
+    ]
   },
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security", "dependencies"],
-    "schedule": ["at any time"]
+    "labels": [
+      "security",
+      "dependencies"
+    ],
+    "schedule": [
+      "at any time"
+    ]
   },
   "packageRules": [
     {
-      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "matchUpdateTypes": [
+        "patch",
+        "pin",
+        "digest"
+      ],
       "automerge": true,
       "platformAutomerge": true,
-      "labels": ["dependencies", "auto-merge"]
+      "labels": [
+        "dependencies",
+        "auto-merge"
+      ]
     },
     {
-      "matchManagers": ["github-actions"],
-      "labels": ["dependencies", "github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "labels": [
+        "dependencies",
+        "github-actions"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
-      "matchManagers": ["pip_requirements", "pep621", "poetry"],
-      "labels": ["dependencies", "python"]
+      "matchManagers": [
+        "pip_requirements",
+        "pep621",
+        "poetry"
+      ],
+      "labels": [
+        "dependencies",
+        "python"
+      ]
     },
     {
-      "matchManagers": ["pre-commit"],
-      "labels": ["dependencies", "pre-commit"],
+      "matchManagers": [
+        "pre-commit"
+      ],
+      "labels": [
+        "dependencies",
+        "pre-commit"
+      ],
       "automerge": true,
       "platformAutomerge": true
     },
     {
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
       "platformAutomerge": false,
-      "labels": ["dependencies", "major", "needs-review"]
+      "labels": [
+        "dependencies",
+        "major",
+        "needs-review"
+      ]
     },
     {
-      "matchPackageNames": ["homeassistant", "pytest-homeassistant-custom-component"],
+      "matchPackageNames": [
+        "homeassistant",
+        "pytest-homeassistant-custom-component"
+      ],
       "groupName": "home-assistant",
       "automerge": false,
       "platformAutomerge": false,
-      "labels": ["dependencies", "homeassistant", "needs-review"]
+      "labels": [
+        "dependencies",
+        "homeassistant",
+        "needs-review"
+      ]
+    },
+    {
+      "description": "Tout ce qui monte se fusionne seul quand la CI est verte (op\u00e9rateur, 2026-10-14)",
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": true,
+      "platformAutomerge": true
     }
-  ]
+  ],
+  "rollbackPrs": false
 }
