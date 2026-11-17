@@ -21,7 +21,9 @@
   "rebaseWhen": "behind-base-branch",
   "minimumReleaseAge": "3 days",
   "configMigration": true,
-  "dependencyDashboardTitle": "📦 Renovate Dependency Dashboard",
+  "dependencyDashboard": {
+    "title": "📦 Renovate Dependency Dashboard"
+  },
   "pre-commit": { "enabled": true },
   "lockFileMaintenance": {
     "enabled": true,
